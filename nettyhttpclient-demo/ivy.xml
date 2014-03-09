@@ -1,0 +1,74 @@
+<!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor 
+	license agreements. See the NOTICE file distributed with this work for additional 
+	information regarding copyright ownership. The ASF licenses this file to 
+	you under the Apache License, Version 2.0 (the "License"); you may not use 
+	this file except in compliance with the License. You may obtain a copy of 
+	the License at http://www.apache.org/licenses/LICENSE-2.0 Unless required 
+	by applicable law or agreed to in writing, software distributed under the 
+	License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS 
+	OF ANY KIND, either express or implied. See the License for the specific 
+	language governing permissions and limitations under the License. -->
+<ivy-module version="1.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="http://ant.apache.org/ivy/schemas/ivy.xsd">
+	<info organisation="org.jocean.demo" module="${module.name}"
+		revision="${module.version}" status="release" publication="20130508120000">
+	</info>
+	<configurations>
+		<conf name="compile" visibility="public" />
+		<conf name="test" visibility="private" extends="compile" />
+		<conf name="runtime" visibility="public" extends="compile" />
+		<conf name="develop" visibility="public" extends="compile" />
+	</configurations>
+	<publications>
+		<artifact name="${module.name}" type="jar" ext="jar" conf="compile" />
+		<artifact name="${module.name}" type="source" ext="jar" conf="develop" />
+		<artifact name="${module.name}" type="javadoc" ext="jar" conf="develop" />
+	</publications>
+	<dependencies>
+		<dependency org="org.jocean" name="jocean-idiom" rev="0.0.2" 
+			conf="compile->default(*)" transitive="false"/>
+		
+		<dependency org="org.jocean" name="jocean-syncfsm" rev="0.0.4" 
+			conf="compile->default(*)" transitive="false"/>
+		
+		<dependency org="org.jocean" name="jocean-transportclient" rev="0.0.1" 
+			conf="compile->default(*)" transitive="false"/>
+		
+	   	<!-- dependency org="org.slf4j" name="slf4j-android" rev="1.6.1-RC1" 
+			conf="compile->defalut(*)" transitive="false"/ -->
+			
+	   	<dependency org="com.github.tony19" name="logback-android-core" rev="1.1.1-2" 
+			conf="compile->defalut(*)" transitive="false"/>
+			
+	   	<dependency org="com.github.tony19" name="logback-android-classic" rev="1.1.1-2" 
+			conf="compile->defalut(*)" transitive="false"/>
+	   	
+	   	<dependency org="org.slf4j" name="slf4j-api" rev="1.7.6" 
+			conf="compile->defalut(*)" transitive="false"/>
+	   	
+		<dependency org="io.netty" name="netty-all" rev="4.0.17.Final" 
+			conf="compile->defalut(*)" transitive="false"/>		
+			
+		<!-- dependency org="io.netty" name="netty-common" rev="4.0.17.Final" 
+			conf="compile->defalut(*)" transitive="false"/>
+			
+		<dependency org="io.netty" name="netty-transport" rev="4.0.17.Final" 
+			conf="compile->defalut(*)" transitive="false"/>
+	
+		<dependency org="io.netty" name="netty-codec" rev="4.0.17.Final" 
+			conf="compile->defalut(*)" transitive="false"/>
+		
+		<dependency org="io.netty" name="netty-codec-http" rev="4.0.17.Final" 
+			conf="compile->defalut(*)" transitive="false"/>
+		
+		<dependency org="io.netty" name="netty-handler" rev="4.0.17.Final" 
+			conf="compile->defalut(*)" transitive="false"/>
+		
+		<dependency org="io.netty" name="netty-buffer" rev="4.0.17.Final" 
+			conf="compile->defalut(*)" transitive="false"/ -->
+						
+		<dependency org="com.jcraft" name="jzlib" rev="1.1.2" 
+			conf="compile->defalut(*)" transitive="false"/>		
+	</dependencies>
+</ivy-module>
