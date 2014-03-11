@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:ivy="antlib:org.apache.ivy.ant" name="syncfsm-demo" default="help">
+	<property file="local.properties" />
+	<property file="ant.properties" />
+	
+	<!-- if sdk.dir was not set from one of the property file, then
+         get it from the ANDROID_HOME env var.
+         This must be done before we load project.properties since
+         the proguard config can use sdk.dir -->
+    <property environment="env" />
+    <condition property="sdk.dir" value="${env.ANDROID_HOME}">
+        <isset property="env.ANDROID_HOME" />
+    </condition>
+    
+    <loadproperties srcFile="project.properties" />
+    
+     <!-- quick check on sdk.dir -->
+    <fail
+            message="sdk.dir is missing. Make sure to generate local.properties using 'android update project' or to inject it through the ANDROID_HOME environment variable."
+            unless="sdk.dir"
+    />
+    
+    <import file="custom_rules.xml" optional="true" />
+	<!-- ivy settings -->
+	<ivy:settings url="http://stcdev.sky-mobi.com:8080/devconf/ivysettings.xml"/>
+	
+	<!-- Import the actual build file.
+
+         To customize existing targets, there are two options:
+         - Customize only one target:
+             - copy/paste the target into this file, *before* the
+               <import> task.
+             - customize it to your needs.
+         - Customize the whole content of build.xml
+             - copy/paste the content of the rules files (minus the top node)
+               into this file, replacing the <import> task.
+             - customize to your needs.
+
+         ***********************
+         ****** IMPORTANT ******
+         ***********************
+         In all cases you must update the value of version-tag below to read 'custom' instead of an integer,
+         in order to avoid having your file be overridden by tools such as "android update project"
+    -->
+    <!-- version-tag: 1 -->
+    <import file="${sdk.dir}/tools/ant/build.xml" />
+	
+    <target name="-build-setup" depends="dep-clean-all,dep-resolve,android_rules.-build-setup">
+		<fileset id="libs.contents" dir="${jar.libs.dir}" />
+		<property name="prop.libs.contents" refid="libs.contents" />
+		<echo>The "${jar.libs.dir}" directory contains: ${prop.libs.contents}</echo>
+	</target>
+	
+	<target name="dep-resolve" description="--> retrieve dependencies with ivy">
+        <!--  ivy:retrieve conf="binaries" pattern="libs/[artifact]-[revision](-[classifier]).[ext]" />-->
+        <ivy:retrieve pattern="${jar.libs.dir}/[artifact]-[revision]-[type].[ext]" type="jar,bundle"/>
+    </target>
+
+    <target name="dep-cleancache" description="--> clean ivy cache">
+        <ivy:cleancache />
+    </target>
+
+    <target name="dep-clean" description="removes jars">
+        <echo>removes ${jar.libs.dir} jars </echo>
+        <delete includeEmptyDirs="true">
+    		<fileset dir="${jar.libs.dir}" casesensitive="yes" erroronmissingdir="false">
+    		  	<include name="**/*-jar.jar"/>
+    		</fileset>
+		</delete>
+    </target>
+    
+    <target name="dep-clean-all" depends="dep-clean,dep-cleancache" description="--> removes jars and clears ivy-cache" />
+    
+	<target name="retrieve" description="--> retrieve dependencies with ivy">
+		<!--ivy:retrieve pattern="${jar.libs.dir}/[artifact](-[revision])(-[classifier]).[ext]" /  -->
+		<ivy:retrieve pattern="${jar.libs.dir}/[artifact]-[revision]-[type].[ext]" type="jar,bundle"/>
+	</target>
+</project>

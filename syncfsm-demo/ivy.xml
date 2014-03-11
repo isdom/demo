@@ -1,0 +1,18 @@
+<ivy-module version="1.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="http://ant.apache.org/ivy/schemas/ivy.xsd">
+	<info organisation="skymobi.android.app" module="${module.name}">
+	</info>
+	<configurations>
+		<conf name="compile" visibility="public" />
+		<conf name="test" visibility="private" extends="compile" />
+	</configurations>
+	<dependencies>
+		<dependency org="org.jocean" name="jocean-syncfsm" rev="0.0.4" 
+			conf="compile->default(*)" transitive="false"/>
+		<dependency org="org.jocean" name="jocean-idiom" rev="0.0.2" 
+			conf="compile->default(*)" transitive="false"/>
+		<dependency org="org.slf4j" name="slf4j-android" rev="1.6.1-RC1" 
+			conf="compile->defalut(*)" transitive="false"/>
+	</dependencies>
+</ivy-module>

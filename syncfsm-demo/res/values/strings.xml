@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">SyncFSM Demo</string>
+    <string name="action_settings">Settings</string>
+    <string name="btn_coin">Coin</string>
+    <string name="btn_pass">Pass</string>
+    <string name="current_state">Current State</string>
+
+</resources>
