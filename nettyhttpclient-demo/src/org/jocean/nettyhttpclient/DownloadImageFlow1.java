@@ -63,10 +63,10 @@ public class DownloadImageFlow1 extends AbstractFlow {
 	@OnEvent(event = TransportEvents.EVENT_CHANNELUNREGISTERED)
 	private EventHandler onUnregistered(final ChannelHandlerContext ctx)
 			throws Exception {
-		_onClosed.visit(ctx.channel());
-		// if ( LOG.isDebugEnabled() ) {
-		LOG.debug("channel for {} closed.", _uri);
-		// }
+		this._channelRemover.removeChannel(ctx.channel());
+		if ( LOG.isDebugEnabled() ) {
+			LOG.debug("channel for {} closed.", _uri);
+		}
 		return null;
 	}
 
@@ -105,10 +105,10 @@ public class DownloadImageFlow1 extends AbstractFlow {
 		// TODO
 		// _onSaveUncompletedHttpContent.visit(_response, _bytesList);
 
-		_onClosed.visit(ctx.channel());
-		// if ( LOG.isDebugEnabled() ) {
-		LOG.debug("channel for {} closed.", _uri);
-		// }
+		_channelRemover.removeChannel(ctx.channel());
+		if ( LOG.isDebugEnabled() ) {
+			LOG.debug("channel for {} closed.", _uri);
+		}
 		return null;
 	}
 
@@ -127,17 +127,17 @@ public class DownloadImageFlow1 extends AbstractFlow {
 		return RECVCOMPLETE;
 	}
 
-	public DownloadImageFlow1(final URI uri, final Visitor<Channel> onclosed,
+	public DownloadImageFlow1(final URI uri, final ChannelRemover channelRemover,
 			final Visitor<Bitmap> visitor) {
 		this._uri = uri;
 		this._bitmapVisitor = visitor;
-		this._onClosed = onclosed;
+		this._channelRemover = channelRemover;
 	}
 
 	private final URI _uri;
 	private final List<byte[]> _bytesList = new ArrayList<byte[]>();
 	private final Visitor<Bitmap> _bitmapVisitor;
-	private final Visitor<Channel> _onClosed;
+	private final ChannelRemover _channelRemover;
 	private HttpRequest _request;
 	private HttpResponse _response;
 

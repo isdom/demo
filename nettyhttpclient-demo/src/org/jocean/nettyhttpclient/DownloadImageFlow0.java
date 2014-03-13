@@ -3,7 +3,6 @@
  */
 package org.jocean.nettyhttpclient;
 
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.HttpContent;
@@ -63,7 +62,9 @@ public class DownloadImageFlow0 extends AbstractFlow {
           
         @OnEvent(event=TransportEvents.EVENT_HTTPRESPONSERECEIVED)
         private EventHandler responseReceived(final ChannelHandlerContext ctx, final HttpResponse response) {
-    		LOG.debug("channel for {} recv response {}", _uri, response);
+        	if ( LOG.isDebugEnabled() ) {
+        		LOG.debug("channel for {} recv response {}", _uri, response);
+        	}
             //_buf = ctx.channel().alloc().compositeBuffer();
 //            LOG.info("dump for uri {}", _uri);
 //            LOG.info("STATUS: {}", response.getStatus());
@@ -109,23 +110,23 @@ public class DownloadImageFlow0 extends AbstractFlow {
         
         @OnEvent(event=TransportEvents.EVENT_CHANNELUNREGISTERED)
         private EventHandler onUnregistered(final ChannelHandlerContext ctx) throws Exception {
-        	_onClosed.visit(ctx.channel());
-        	//if ( LOG.isDebugEnabled() ) {
+        	this._channelRemover.removeChannel(ctx.channel());
+        	if ( LOG.isDebugEnabled() ) {
         		LOG.debug("channel for {} closed.", _uri);
-        	//}
+        	}
             return null;
         }
         
-    	public DownloadImageFlow0(final URI uri, final Visitor<Channel> onclosed, final Visitor<Bitmap> visitor) {
+    	public DownloadImageFlow0(final URI uri, final ChannelRemover channelRemover, final Visitor<Bitmap> visitor) {
     		this._uri = uri;
     		this._bitmapVisitor = visitor;
-    		this._onClosed = onclosed;
+    		this._channelRemover = channelRemover;
     	}
     	
     	private final URI _uri;
     	private final List<byte[]> _bytesList = new ArrayList<byte[]>();
     	private final Visitor<Bitmap> _bitmapVisitor;
-    	private final Visitor<Channel> _onClosed;
+    	private final ChannelRemover _channelRemover;
 
     	private static HttpRequest genHttpRequest(final URI uri) {
     	    // Prepare the HTTP request.

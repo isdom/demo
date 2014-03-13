@@ -4,13 +4,17 @@
 package org.jocean.nettyhttpclient;
 
 import io.netty.channel.Channel;
+import io.netty.util.ReferenceCounted;
 
 import java.net.URI;
 import java.util.HashSet;
 import java.util.Set;
 
 import org.jocean.idiom.Visitor;
+import org.jocean.syncfsm.api.ArgsHandler;
+import org.jocean.syncfsm.api.EventReceiver;
 import org.jocean.syncfsm.api.EventReceiverSource;
+import org.jocean.syncfsm.api.SyncFSMUtils;
 import org.jocean.syncfsm.container.FlowContainer;
 import org.jocean.transportclient.HttpStack;
 import org.jocean.transportclient.TransportClient;
@@ -96,7 +100,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
         } else {  
             view = convertView;  
         }  
-        final ImageView photo = (ImageView) view.findViewById(R.id.photo);  
+        final CustomImageView photo = (CustomImageView) view.findViewById(R.id.photo);  
         // 给ImageView设置一个Tag，保证异步加载图片时不会乱序  
         photo.setTag(url);  
         setImageView(url, photo);  
@@ -112,7 +116,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
      * @param imageView 
      *            用于显示图片的控件。 
      */  
-    private void setImageView(String imageUrl, ImageView imageView) {  
+    private void setImageView(final String imageUrl, final ImageView imageView) {  
         final Bitmap bitmap = getBitmapFromMemoryCache(imageUrl);  
         if (bitmap != null) {  
             imageView.setImageBitmap(bitmap);  
@@ -185,21 +189,21 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
                 final Bitmap bitmap = getBitmapFromMemoryCache(imageUrl);  
                 if (bitmap == null) {  
                 	// start to download image
-                	//if ( LOG.isDebugEnabled() ) {
+                	if ( LOG.isDebugEnabled() ) {
                 		LOG.debug("start to loading image {}", imageUrl);
-                	//}
+                	}
                 	
 					final URI uri = new URI(imageUrl);
-					final DownloadImageFlow0 flow = new DownloadImageFlow0(uri, 
-						new Visitor<Channel>() {
+					final DownloadImageFlow0 downloadImageFlow = new DownloadImageFlow0(uri, 
+						new ChannelRemover() {
 
 							@Override
-							public void visit(final Channel ch) throws Exception {
+							public void removeChannel(final Channel channel) {
 								_handler.post(new Runnable() {
 
 									@Override
 									public void run() {
-										taskCollection.remove(ch);
+										taskCollection.remove(channel);
 									}});
 							}},
 						new Visitor<Bitmap>() {
@@ -218,17 +222,47 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 							            }
 									}});
 							}});
+					final DrawProgressFlow progressFlow = new DrawProgressFlow( 
+							this.getContext(), 
+							getImageViewOf(imageUrl),
+							uri, new EventReceiverCollection() {
+
+						@Override
+						public void addEventReceiver(
+								final EventReceiver eventReceiver) {
+							LOG.info("add {}", eventReceiver);
+							attachEventReceiverToImageView(imageUrl, eventReceiver);
+						}
+
+						@Override
+						public void removeEventReceiver(
+								final EventReceiver eventReceiver) {
+							LOG.info("remove {}", eventReceiver);
+							detachEventReceiverFromImageView(imageUrl, eventReceiver);
+						}} );
+					
 					final Channel channel = _client.newChannel();
 					taskCollection.add(channel);
 					_http.launchConnect(
 							channel,
 							uri, 
-							_source.create(flow, flow.UNCONNECTED ),
+							SyncFSMUtils.combineEventReceivers( 
+									SyncFSMUtils.wrapAsyncEventReceiver(_source.create(progressFlow, progressFlow.UNCONNECTED), 
+											new Visitor<Runnable>() {
+
+												@Override
+												public void visit(final Runnable runnable)
+														throws Exception {
+													_handler.post(runnable);
+													
+												}}, 
+												genSafeRetainArgsHandler()),
+									_source.create(downloadImageFlow, downloadImageFlow.UNCONNECTED )
+								),
 							false);
-                	//if ( LOG.isDebugEnabled() ) {
+                	if ( LOG.isDebugEnabled() ) {
                 		LOG.debug("try to connect {}", imageUrl);
-                	//}
-                	
+                	}
                 } else {  
                     setImageToView(imageUrl, bitmap);  
                 }  
@@ -238,11 +272,57 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
         }  
     }
 
+	protected void attachEventReceiverToImageView(final String imageUrl,
+			final EventReceiver eventReceiver) {
+		final CustomImageView imageView = (CustomImageView) mPhotoWall.findViewWithTag(imageUrl);  
+		if (imageView != null ) {  
+		    imageView.setEventReceiver(eventReceiver);
+		}
+	}
+
+	protected void detachEventReceiverFromImageView(final String imageUrl,
+			final EventReceiver eventReceiver) {
+		final CustomImageView imageView = (CustomImageView) mPhotoWall.findViewWithTag(imageUrl);  
+		if (imageView != null ) {  
+		    imageView.setEventReceiver(null);
+		}
+	}
+
+	private ArgsHandler genSafeRetainArgsHandler() {
+		return new ArgsHandler() {
+
+			@Override
+			public Object[] beforeAcceptEvent(final Object[] args) {
+				final Object[] safeArgs = new Object[args.length];
+				int idx = 0;
+				for ( Object arg : args) {
+					if ( arg instanceof ReferenceCounted ) {
+						((ReferenceCounted)arg).retain();
+					}
+					safeArgs[idx++] = arg;
+				}
+				return safeArgs;
+			}
+
+			@Override
+			public void afterAcceptEvent(final Object[] args) {
+				for ( Object arg : args) {
+					if ( arg instanceof ReferenceCounted ) {
+						((ReferenceCounted)arg).release();
+					}
+				}
+			}};
+	}
+
 	private void setImageToView(final String imageUrl, final Bitmap bitmap) {
-		ImageView imageView = (ImageView) mPhotoWall.findViewWithTag(imageUrl);  
+		final ImageView imageView = getImageViewOf(imageUrl);  
 		if (imageView != null && bitmap != null) {  
 		    imageView.setImageBitmap(bitmap);  
 		}
+	}
+
+	private ImageView getImageViewOf(final String imageUrl) {
+		return (ImageView) mPhotoWall.findViewWithTag(imageUrl);
 	}  
   
     /** 
