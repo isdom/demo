@@ -15,6 +15,7 @@ import java.net.URI;
 import org.jocean.syncfsm.api.AbstractFlow;
 import org.jocean.syncfsm.api.BizStep;
 import org.jocean.syncfsm.api.EventHandler;
+import org.jocean.syncfsm.api.EventReceiver;
 import org.jocean.syncfsm.api.annotion.OnEvent;
 import org.jocean.syncfsm.api.annotion.SameThread;
 import org.jocean.transportclient.TransportEvents;
@@ -41,18 +42,27 @@ public class DrawProgressFlow extends AbstractFlow {
 
 	public final BizStep UNCONNECTED = new BizStep("UNCONNECTED")
 			.handler(selfInvoker("onConnected"))
+			.handler(selfInvoker("onDrawOnConnecting"))
 			.handler(selfInvoker("onUnregistered")).freeze();
 
 	private final BizStep RECVRESP = new BizStep("RECVRESP")
 			.handler(selfInvoker("responseReceived"))
+			.handler(selfInvoker("onDrawOnRecvResp"))
 			.handler(selfInvoker("onUnregistered")).freeze();
 
 	private final BizStep RECVCONTENT = new BizStep("RECVCONTENT")
 			.handler(selfInvoker("contentReceived"))
 			.handler(selfInvoker("lastContentReceived"))
-			.handler(selfInvoker("onDraw"))
+			.handler(selfInvoker("onDrawOnRecvContent"))
 			.handler(selfInvoker("onUnregistered"))
 			.freeze();
+
+	@Override
+	public void setEventReceiver(final EventReceiver receiver) {
+		super.setEventReceiver(receiver);
+		this._collection.addEventReceiver(receiver);
+		this._view.invalidate();
+	}
 
 	@OnEvent(event = TransportEvents.EVENT_CHANNELUNREGISTERED)
 	private EventHandler onUnregistered(final ChannelHandlerContext ctx)
@@ -66,11 +76,62 @@ public class DrawProgressFlow extends AbstractFlow {
 
 	@OnEvent(event = TransportEvents.EVENT_CHANNELCONNECTED)
 	private EventHandler onConnected(final ChannelHandlerContext ctx) {
-		// save http request
-		this._collection.addEventReceiver(selfEventReceiver());
+		this._view.invalidate();
 		return RECVRESP;
 	}
 
+	@OnEvent(event = "onDraw")
+	private EventHandler onDrawOnConnecting(final ImageView view, final Canvas canvas) {
+		
+		int center = view.getWidth() / 2;
+		int radios = center / 4;
+
+		// 绘制圆环
+		this.paint.setStyle(Paint.Style.STROKE); // 绘制空心圆
+		this.paint.setColor(Color.RED);
+		this.paint.setStrokeWidth(ringWidth);
+		canvas.drawCircle(center, center, radios, this.paint);
+
+		// display _progress %
+		this.paint.setStyle(Paint.Style.FILL);
+		this.paint.setColor(textColor);
+		this.paint.setStrokeWidth(0);
+		this.paint.setTextSize(textSize);
+		this.paint.setTypeface(Typeface.DEFAULT_BOLD);
+		textProgress = "-->";
+		final float textWidth = paint.measureText(textProgress);
+		canvas.drawText(textProgress, center - textWidth / 2, center + textSize
+				/ 2, paint);
+		
+		return this.currentEventHandler();
+	}
+	
+	@OnEvent(event = "onDraw")
+	private EventHandler onDrawOnRecvResp(final ImageView view, final Canvas canvas) {
+		
+		int center = view.getWidth() / 2;
+		int radios = center / 4;
+
+		// 绘制圆环
+		this.paint.setStyle(Paint.Style.STROKE); // 绘制空心圆
+		this.paint.setColor(Color.GREEN);
+		this.paint.setStrokeWidth(ringWidth);
+		canvas.drawCircle(center, center, radios, this.paint);
+
+		// display _progress %
+		this.paint.setStyle(Paint.Style.FILL);
+		this.paint.setColor(textColor);
+		this.paint.setStrokeWidth(0);
+		this.paint.setTextSize(textSize);
+		this.paint.setTypeface(Typeface.DEFAULT_BOLD);
+		textProgress = "<--";
+		final float textWidth = paint.measureText(textProgress);
+		canvas.drawText(textProgress, center - textWidth / 2, center + textSize
+				/ 2, paint);
+		
+		return this.currentEventHandler();
+	}
+	
 	@OnEvent(event = TransportEvents.EVENT_HTTPRESPONSERECEIVED)
 	private EventHandler responseReceived(final ChannelHandlerContext ctx,
 			final HttpResponse response) {
@@ -108,7 +169,7 @@ public class DrawProgressFlow extends AbstractFlow {
 	}
 
 	@OnEvent(event = "onDraw")
-	private EventHandler onDraw(final ImageView view, final Canvas canvas) {
+	private EventHandler onDrawOnRecvContent(final ImageView view, final Canvas canvas) {
 		
 		final long max = Math.max(this._contentLength, this._progress);
 		LOG.info("draw uri {} progress with {}/{}", new Object[]{ this._uri, this._progress, this._contentLength}); 

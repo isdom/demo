@@ -5,12 +5,16 @@ package org.jocean.nettyhttpclient;
 
 import io.netty.channel.Channel;
 import io.netty.util.ReferenceCounted;
+import io.netty.handler.codec.http.HttpResponse;
 
 import java.net.URI;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.List;
 
+import org.jocean.idiom.Pair;
 import org.jocean.idiom.Visitor;
+import org.jocean.idiom.Visitor2;
 import org.jocean.syncfsm.api.ArgsHandler;
 import org.jocean.syncfsm.api.EventReceiver;
 import org.jocean.syncfsm.api.EventReceiverSource;
@@ -89,6 +93,13 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
             }  
         };  
         mPhotoWall.setOnScrollListener(this);  
+        
+        this._partsCache = new LruCache<String, PartBody>(cacheSize) {
+            @Override  
+            protected int sizeOf(final String key, final PartBody body) {  
+                return	body.bytesSize();
+            }  
+        };
     }  
   
     @Override  
@@ -146,7 +157,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
      *            LruCache的键，这里传入图片的URL地址。 
      * @return 对应传入键的Bitmap对象，或者null。 
      */  
-    public Bitmap getBitmapFromMemoryCache(String key) {  
+    public Bitmap getBitmapFromMemoryCache(final String key) {  
         return mMemoryCache.get(key);  
     }  
   
@@ -194,71 +205,17 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
                 	}
                 	
 					final URI uri = new URI(imageUrl);
-					final DownloadImageFlow0 downloadImageFlow = new DownloadImageFlow0(uri, 
-						new ChannelRemover() {
-
-							@Override
-							public void removeChannel(final Channel channel) {
-								_handler.post(new Runnable() {
-
-									@Override
-									public void run() {
-										taskCollection.remove(channel);
-									}});
-							}},
-						new Visitor<Bitmap>() {
-
-							@Override
-							public void visit(final Bitmap b) throws Exception {
-								_handler.post(new Runnable() {
-	
-									@Override
-									public void run() {
-							            if (b != null) {  
-							                // 图片下载完成后缓存到LrcCache中  
-							                addBitmapToMemoryCache(imageUrl, b);  
-								            // 根据Tag找到相应的ImageView控件，将下载好的图片显示出来。  
-						                    setImageToView(imageUrl, b);  
-							            }
-									}});
-							}});
-					final DrawProgressFlow progressFlow = new DrawProgressFlow( 
-							this.getContext(), 
-							getImageViewOf(imageUrl),
-							uri, new EventReceiverCollection() {
-
-						@Override
-						public void addEventReceiver(
-								final EventReceiver eventReceiver) {
-							LOG.info("add {}", eventReceiver);
-							attachEventReceiverToImageView(imageUrl, eventReceiver);
-						}
-
-						@Override
-						public void removeEventReceiver(
-								final EventReceiver eventReceiver) {
-							LOG.info("remove {}", eventReceiver);
-							detachEventReceiverFromImageView(imageUrl, eventReceiver);
-						}} );
+					final DownloadImageFlow2 downloadImageFlow = genDownloadImageFlow(
+							getPartFromCache(imageUrl),
+							imageUrl, uri);
+					final DrawProgressFlow progressFlow = genDrawProgressFlow(imageUrl, uri);
 					
 					final Channel channel = _client.newChannel();
 					taskCollection.add(channel);
 					_http.launchConnect(
 							channel,
 							uri, 
-							SyncFSMUtils.combineEventReceivers( 
-									SyncFSMUtils.wrapAsyncEventReceiver(_source.create(progressFlow, progressFlow.UNCONNECTED), 
-											new Visitor<Runnable>() {
-
-												@Override
-												public void visit(final Runnable runnable)
-														throws Exception {
-													_handler.post(runnable);
-													
-												}}, 
-												genSafeRetainArgsHandler()),
-									_source.create(downloadImageFlow, downloadImageFlow.UNCONNECTED )
-								),
+							genCompositeEventReceiver(downloadImageFlow, progressFlow),
 							false);
                 	if ( LOG.isDebugEnabled() ) {
                 		LOG.debug("try to connect {}", imageUrl);
@@ -271,6 +228,115 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
             e.printStackTrace();  
         }  
     }
+
+	/**
+	 * @param downloadImageFlow
+	 * @param progressFlow
+	 * @return
+	 */
+	private EventReceiver genCompositeEventReceiver(
+			final DownloadImageFlow2 downloadImageFlow,
+			final DrawProgressFlow progressFlow) {
+		return SyncFSMUtils.combineEventReceivers( 
+				SyncFSMUtils.wrapAsyncEventReceiver(_source.create(progressFlow, progressFlow.UNCONNECTED), 
+						new Visitor<Runnable>() {
+
+							@Override
+							public void visit(final Runnable runnable)
+									throws Exception {
+								_handler.post(runnable);
+								
+							}}, 
+							genSafeRetainArgsHandler()),
+				_source.create(downloadImageFlow, downloadImageFlow.UNCONNECTED )
+			);
+	}
+
+	/**
+	 * @param imageUrl
+	 * @param uri
+	 * @return
+	 */
+	private DrawProgressFlow genDrawProgressFlow(final String imageUrl,
+			final URI uri) {
+		return new DrawProgressFlow( 
+				this.getContext(), 
+				getImageViewOf(imageUrl),
+				uri, new EventReceiverCollection() {
+
+			@Override
+			public void addEventReceiver(
+					final EventReceiver eventReceiver) {
+				LOG.info("add {}", eventReceiver);
+				attachEventReceiverToImageView(imageUrl, eventReceiver);
+			}
+
+			@Override
+			public void removeEventReceiver(
+					final EventReceiver eventReceiver) {
+				LOG.info("remove {}", eventReceiver);
+				detachEventReceiverFromImageView(imageUrl, eventReceiver);
+			}} );
+	}
+
+	/**
+	 * @param partBody 
+	 * @param imageUrl
+	 * @param uri
+	 * @return
+	 */
+	private DownloadImageFlow2 genDownloadImageFlow(
+			final PartBody partBody, 
+			final String imageUrl,
+			final URI uri) {
+		final DownloadImageFlow2 downloadImageFlow = new DownloadImageFlow2(
+			(null != partBody ?  Pair.of(partBody.response, partBody.bytesList) : null),
+			uri, 
+			new ChannelRemover() {
+
+				@Override
+				public void removeChannel(final Channel channel) {
+					_handler.post(new Runnable() {
+
+						@Override
+						public void run() {
+							taskCollection.remove(channel);
+						}});
+				}},
+			new Visitor<Bitmap>() {
+
+				@Override
+				public void visit(final Bitmap b) throws Exception {
+					_handler.post(new Runnable() {
+
+						@Override
+						public void run() {
+				            if (b != null) {  
+				                // 图片下载完成后缓存到LrcCache中  
+				                addBitmapToMemoryCache(imageUrl, b);  
+					            // 根据Tag找到相应的ImageView控件，将下载好的图片显示出来。  
+			                    setImageToView(imageUrl, b);  
+				            }
+						}});
+				}},
+			new Visitor2<HttpResponse, List<byte[]>>() {
+
+				@Override
+				public void visit(final HttpResponse resp, final List<byte[]> bytesList)
+						throws Exception {
+					savePartToCache(imageUrl, resp, bytesList);
+				}});
+		return downloadImageFlow;
+	}
+
+    public PartBody getPartFromCache(final String key) {  
+        return this._partsCache.get(key);
+    }
+	
+	protected void savePartToCache(final String imageUrl, final HttpResponse resp,
+			final List<byte[]> bytesList) {
+		this._partsCache.put(imageUrl, new PartBody(resp, bytesList));
+	}
 
 	protected void attachEventReceiverToImageView(final String imageUrl,
 			final EventReceiver eventReceiver) {
@@ -335,7 +401,27 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
             }  
         }  
     }  
-  
+
+    private static final class PartBody {
+    	final HttpResponse response;
+    	final List<byte[]> bytesList;
+    	
+    	PartBody(HttpResponse response, List<byte[]> bytesList) {
+    		this.response = response;
+    		this.bytesList = bytesList;
+    	}
+
+		int bytesSize() {
+			int totalSize = 0;
+			for ( byte[] bytes : this.bytesList) {
+				totalSize += bytes.length;
+			}
+			return totalSize;
+		}
+    };
+    
+    private LruCache<String, PartBody> _partsCache;
+   
     private final Handler _handler = new Handler();
 	private final TransportClient _client = new TransportClient();
 	private final HttpStack _http = new HttpStack();
