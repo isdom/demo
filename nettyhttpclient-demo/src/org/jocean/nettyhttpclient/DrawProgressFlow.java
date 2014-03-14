@@ -140,6 +140,29 @@ public class DrawProgressFlow extends AbstractFlow {
 		}
 		_response = response;
 		_contentLength = HttpHeaders.getContentLength(response, -1);
+		// 考虑 Content-Range 的情况
+		final String contentRange = response.headers().get(HttpHeaders.Names.CONTENT_RANGE);
+		if ( null != contentRange ) {
+			LOG.info("found Content-Range header, parse {}", contentRange);
+			//	Content-Range: bytes (unit first byte pos) - [last byte pos]/[entity legth] 
+			//	eg: Content-Range: bytes 0-800/801 //801:文件总大小
+			final int bytesStart = contentRange.indexOf("bytes ");
+			final String bytesRange = ( -1 != bytesStart ? contentRange.substring(bytesStart + 6) : contentRange);
+			LOG.info("Content-Range parsing bytesStart:{}/ bytesRange:{}", bytesStart, bytesRange);
+			
+			final int dashStart = bytesRange.indexOf('-');
+			final String partBegin = ( -1 != dashStart ? bytesRange.substring(0, dashStart) : null);
+			final int totalStart = bytesRange.indexOf('/');
+			final String totalSize = ( -1 != totalStart ? bytesRange.substring(totalStart + 1) : null);
+			if ( null != partBegin ) {
+				this._progress = Integer.parseInt(partBegin);
+				LOG.info("Content-Range begins at {}", this._progress);
+			}
+			if ( null != totalSize ) {
+				this._contentLength = Long.parseLong(totalSize);
+				LOG.info("Content-Range total size {}", this._contentLength);
+			}
+		}
 		return RECVCONTENT;
 	}
 
