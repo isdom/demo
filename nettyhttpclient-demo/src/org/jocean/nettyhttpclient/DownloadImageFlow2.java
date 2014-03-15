@@ -43,27 +43,27 @@ import android.graphics.BitmapFactory;
 @SameThread
 public class DownloadImageFlow2 extends AbstractFlow {
 	private static final Logger LOG = LoggerFactory
-			.getLogger("DownloadImageFlow1");
+			.getLogger("DownloadImageFlow2");
 
-	public final BizStep UNCONNECTED = new BizStep("UNCONNECTED")
-			.handler(selfInvoker("onConnected"))
-			.handler(selfInvoker("onUnregistered")).freeze();
+	public final BizStep UNCONNECTED = new BizStep("dlimg2.UNCONNECTED")
+			.handler(selfInvoker("onActive"))
+			.handler(selfInvoker("onInactive")).freeze();
 
-	public final BizStep RECVRESP = new BizStep("RECVRESP")
+	public final BizStep RECVRESP = new BizStep("dlimg2.RECVRESP")
 			.handler(selfInvoker("responseReceived"))
-			.handler(selfInvoker("onUnregistered")).freeze();
+			.handler(selfInvoker("onInactive")).freeze();
 
-	public final BizStep RECVCONTENT = new BizStep("RECVCONTENT")
+	public final BizStep RECVCONTENT = new BizStep("dlimg2.RECVCONTENT")
 			.handler(selfInvoker("contentReceived"))
 			.handler(selfInvoker("lastContentReceived"))
-			.handler(selfInvoker("onUnregisteredAndSaveUncompleteContent"))
+			.handler(selfInvoker("onInactiveAndSaveUncompleteContent"))
 			.freeze();
 
-	public final BizStep RECVCOMPLETE = new BizStep("RECVCOMPLETE")
-		.handler(selfInvoker("onUnregistered")).freeze();
+	public final BizStep RECVCOMPLETE = new BizStep("dlimg2.RECVCOMPLETE")
+		.handler(selfInvoker("onInactive")).freeze();
 
-	@OnEvent(event = TransportEvents.EVENT_CHANNELUNREGISTERED)
-	private EventHandler onUnregistered(final ChannelHandlerContext ctx)
+	@OnEvent(event = TransportEvents.EVENT_CHANNELINACTIVE)
+	private EventHandler onInactive(final ChannelHandlerContext ctx)
 			throws Exception {
 		this._channelRemover.removeChannel(ctx.channel());
 		if ( LOG.isDebugEnabled() ) {
@@ -72,8 +72,8 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		return null;
 	}
 
-	@OnEvent(event = TransportEvents.EVENT_CHANNELCONNECTED)
-	private EventHandler onConnected(final ChannelHandlerContext ctx) {
+	@OnEvent(event = TransportEvents.EVENT_CHANNELACTIVE)
+	private EventHandler onActive(final ChannelHandlerContext ctx) {
 		// save http request
 		_request = genHttpRequest(this._uri, this._part);
 		LOG.debug("send http request {}", _request);
@@ -108,8 +108,8 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		return RECVCONTENT;
 	}
 
-	@OnEvent(event = TransportEvents.EVENT_CHANNELUNREGISTERED)
-	private EventHandler onUnregisteredAndSaveUncompleteContent(
+	@OnEvent(event = TransportEvents.EVENT_CHANNELINACTIVE)
+	private EventHandler onInactiveAndSaveUncompleteContent(
 			final ChannelHandlerContext ctx) throws Exception {
 		// Add some code to save reuse data from server
 		// ...

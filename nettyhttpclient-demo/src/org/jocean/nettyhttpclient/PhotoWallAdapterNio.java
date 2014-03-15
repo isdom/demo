@@ -208,7 +208,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 					final DownloadImageFlow2 downloadImageFlow = genDownloadImageFlow(
 							getPartFromCache(imageUrl),
 							imageUrl, uri);
-					final DrawProgressFlow progressFlow = genDrawProgressFlow(imageUrl, uri);
+					final ShowProgressFlow progressFlow = genDrawProgressFlow(imageUrl, uri);
 					
 					final Channel channel = _client.newChannel();
 					taskCollection.add(channel);
@@ -236,7 +236,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 	 */
 	private EventReceiver genCompositeEventReceiver(
 			final DownloadImageFlow2 downloadImageFlow,
-			final DrawProgressFlow progressFlow) {
+			final ShowProgressFlow progressFlow) {
 		return SyncFSMUtils.combineEventReceivers( 
 				SyncFSMUtils.wrapAsyncEventReceiver(_source.create(progressFlow, progressFlow.UNCONNECTED), 
 						new Visitor<Runnable>() {
@@ -257,9 +257,9 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 	 * @param uri
 	 * @return
 	 */
-	private DrawProgressFlow genDrawProgressFlow(final String imageUrl,
+	private ShowProgressFlow genDrawProgressFlow(final String imageUrl,
 			final URI uri) {
-		return new DrawProgressFlow( 
+		return new ShowProgressFlow( 
 				this.getContext(), 
 				getImageViewOf(imageUrl),
 				uri, new EventReceiverCollection() {

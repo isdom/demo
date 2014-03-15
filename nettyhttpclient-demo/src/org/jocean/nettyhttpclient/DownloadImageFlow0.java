@@ -41,21 +41,21 @@ public class DownloadImageFlow0 extends AbstractFlow {
               LoggerFactory.getLogger("DownloadImageFlow0");
 	  
 	  public final BizStep UNCONNECTED =
-           new BizStep("UNCONNECTED")
-           .handler( selfInvoker("onConnected") )
-           .handler( selfInvoker( "onUnregistered") )
+           new BizStep("dlimg0.UNCONNECTED")
+           .handler( selfInvoker("onActive") )
+           .handler( selfInvoker( "onInactive") )
            .freeze();
                        
        public final BizStep RECVRESP =
-           new BizStep("RECVRESP")  
+           new BizStep("dlimg0.RECVRESP")  
            .handler( selfInvoker( "responseReceived") )
            .handler( selfInvoker( "contentReceived") )
            .handler( selfInvoker( "lastContentReceived") )
-           .handler( selfInvoker( "onUnregistered") )
+           .handler( selfInvoker( "onInactive") )
            .freeze();
  
-        @OnEvent(event=TransportEvents.EVENT_CHANNELCONNECTED)
-        private EventHandler onConnected(final ChannelHandlerContext ctx) {
+        @OnEvent(event=TransportEvents.EVENT_CHANNELACTIVE)
+        private EventHandler onActive(final ChannelHandlerContext ctx) {
             ctx.channel().writeAndFlush(genHttpRequest(_uri));
             return RECVRESP;
         }
@@ -108,8 +108,8 @@ public class DownloadImageFlow0 extends AbstractFlow {
             return RECVRESP;
         }
         
-        @OnEvent(event=TransportEvents.EVENT_CHANNELUNREGISTERED)
-        private EventHandler onUnregistered(final ChannelHandlerContext ctx) throws Exception {
+        @OnEvent(event=TransportEvents.EVENT_CHANNELINACTIVE)
+        private EventHandler onInactive(final ChannelHandlerContext ctx) throws Exception {
         	this._channelRemover.removeChannel(ctx.channel());
         	if ( LOG.isDebugEnabled() ) {
         		LOG.debug("channel for {} closed.", _uri);

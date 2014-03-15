@@ -37,23 +37,30 @@ public class HttpDemoFlow extends AbstractFlow {
               LoggerFactory.getLogger(HttpDemoFlow.class);
 	  
 	  public final BizStep UNCONNECTED =
-           new BizStep("UNCONNECTED")
-           .handler( selfInvoker("onConnected") )
+           new BizStep("demo.UNCONNECTED")
+           .handler( selfInvoker("onActive") )
+           .handler( selfInvoker("onInactive") )
            .freeze();
                        
        public final BizStep RECVRESP =
-           new BizStep("RECVRESP")  
+           new BizStep("demo.RECVRESP")  
            .handler( selfInvoker( "responseReceived") )
            .handler( selfInvoker( "contentReceived") )
            .handler( selfInvoker( "lastContentReceived") )
+           .handler( selfInvoker("onInactive") )
            .freeze();
  
-        @OnEvent(event=TransportEvents.EVENT_CHANNELCONNECTED)
-        private EventHandler onConnected(final ChannelHandlerContext ctx) {
+        @OnEvent(event=TransportEvents.EVENT_CHANNELACTIVE)
+        private EventHandler onActive(final ChannelHandlerContext ctx) {
             ctx.channel().writeAndFlush(genHttpRequest(_uri));
             return RECVRESP;
         }
           
+        @OnEvent(event=TransportEvents.EVENT_CHANNELINACTIVE)
+        private EventHandler onInactive(final ChannelHandlerContext ctx) {
+            return null;
+        }
+        
         @OnEvent(event=TransportEvents.EVENT_HTTPRESPONSERECEIVED)
         private EventHandler responseReceived(final ChannelHandlerContext ctx, final HttpResponse response) {
             LOG.info("dump for uri {}", _uri);
@@ -89,7 +96,7 @@ public class HttpDemoFlow extends AbstractFlow {
             LOG.info("{}: body size {}", _uri, 
             		content.content().toString(CharsetUtil.UTF_8).length());
             LOG.info("} END OF CONTENT for uri {}", _uri);
-            return null;
+            return RECVRESP;
         }
         
     	public HttpDemoFlow(final URI uri) {

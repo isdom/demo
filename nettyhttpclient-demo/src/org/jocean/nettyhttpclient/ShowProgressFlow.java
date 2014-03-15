@@ -36,25 +36,25 @@ import android.widget.ImageView;
  *
  */
 @SameThread
-public class DrawProgressFlow extends AbstractFlow {
+public class ShowProgressFlow extends AbstractFlow {
 	private static final Logger LOG = LoggerFactory
-			.getLogger("DrawProgressFlow");
+			.getLogger("ShowProgressFlow");
 
-	public final BizStep UNCONNECTED = new BizStep("UNCONNECTED")
-			.handler(selfInvoker("onConnected"))
+	public final BizStep UNCONNECTED = new BizStep("showprogress.UNCONNECTED")
+			.handler(selfInvoker("onActive"))
 			.handler(selfInvoker("onDrawOnConnecting"))
-			.handler(selfInvoker("onUnregistered")).freeze();
+			.handler(selfInvoker("onInactive")).freeze();
 
-	private final BizStep RECVRESP = new BizStep("RECVRESP")
+	private final BizStep RECVRESP = new BizStep("showprogress.RECVRESP")
 			.handler(selfInvoker("responseReceived"))
 			.handler(selfInvoker("onDrawOnRecvResp"))
-			.handler(selfInvoker("onUnregistered")).freeze();
+			.handler(selfInvoker("onInactive")).freeze();
 
-	private final BizStep RECVCONTENT = new BizStep("RECVCONTENT")
+	private final BizStep RECVCONTENT = new BizStep("showprogress.RECVCONTENT")
 			.handler(selfInvoker("contentReceived"))
 			.handler(selfInvoker("lastContentReceived"))
 			.handler(selfInvoker("onDrawOnRecvContent"))
-			.handler(selfInvoker("onUnregistered"))
+			.handler(selfInvoker("onInactive"))
 			.freeze();
 
 	@Override
@@ -64,8 +64,8 @@ public class DrawProgressFlow extends AbstractFlow {
 		this._view.invalidate();
 	}
 
-	@OnEvent(event = TransportEvents.EVENT_CHANNELUNREGISTERED)
-	private EventHandler onUnregistered(final ChannelHandlerContext ctx)
+	@OnEvent(event = TransportEvents.EVENT_CHANNELINACTIVE)
+	private EventHandler onInactive(final ChannelHandlerContext ctx)
 			throws Exception {
 		this._collection.removeEventReceiver( selfEventReceiver() );
 		if ( LOG.isDebugEnabled() ) {
@@ -74,8 +74,8 @@ public class DrawProgressFlow extends AbstractFlow {
 		return null;
 	}
 
-	@OnEvent(event = TransportEvents.EVENT_CHANNELCONNECTED)
-	private EventHandler onConnected(final ChannelHandlerContext ctx) {
+	@OnEvent(event = TransportEvents.EVENT_CHANNELACTIVE)
+	private EventHandler onActive(final ChannelHandlerContext ctx) {
 		this._view.invalidate();
 		return RECVRESP;
 	}
@@ -228,7 +228,7 @@ public class DrawProgressFlow extends AbstractFlow {
 		return this.currentEventHandler();
 	}
 	
-	public DrawProgressFlow(final Context context, final View view, final URI uri, final EventReceiverCollection collection) {
+	public ShowProgressFlow(final Context context, final View view, final URI uri, final EventReceiverCollection collection) {
 		this._uri = uri;
 		this._collection = collection;
 		this._view = view;
