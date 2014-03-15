@@ -83,7 +83,11 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
         taskCollection = new HashSet<Channel>();
         // 获取应用程序最大可用内存  
         int maxMemory = (int) Runtime.getRuntime().maxMemory();  
-        int cacheSize = maxMemory / 8;  
+        LOG.info("max Memory is {}", maxMemory);
+        
+        int cacheSize = maxMemory / 4;  
+        LOG.info("so image and uncomplete cache's Memory is {}", cacheSize);
+        
         // 设置图片缓存大小为程序最大可用内存的1/8  
         mMemoryCache = new LruCache<String, Bitmap>(cacheSize) {  
             @Override  
