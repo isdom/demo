@@ -35,18 +35,21 @@
 		<dependency org="org.jocean" name="jocean-transportclient" rev="0.0.2-SNAPSHOT"
 			conf="compile->default(*)" transitive="false" changing="true"/>
 		
-	   	<!-- dependency org="org.slf4j" name="slf4j-android" rev="1.6.1-RC1" 
-			conf="compile->defalut(*)" transitive="false"/ -->
-			
+	   	<dependency org="org.slf4j" name="slf4j-api" rev="1.7.6" 
+			conf="compile->defalut(*)" transitive="false"/>
+	   	
 	   	<dependency org="com.github.tony19" name="logback-android-core" rev="1.1.1-2" 
 			conf="compile->defalut(*)" transitive="false"/>
 			
 	   	<dependency org="com.github.tony19" name="logback-android-classic" rev="1.1.1-2" 
 			conf="compile->defalut(*)" transitive="false"/>
 	   	
-	   	<dependency org="org.slf4j" name="slf4j-api" rev="1.7.6" 
-			conf="compile->defalut(*)" transitive="false"/>
-	   	
+		<!-- dependency org="org.slf4j" name="slf4j-android" rev="1.6.1-RC1" 
+			conf="compile->defalut(*)" transitive="false"/ -->
+			
+		<dependency org="com.jcraft" name="jzlib" rev="1.1.2" 
+			conf="compile->defalut(*)" transitive="false"/>		
+			
 		<dependency org="io.netty" name="netty-all" rev="4.0.17.Final" 
 			conf="compile->defalut(*)" transitive="false" changing="true"/>		
 			
@@ -68,7 +71,5 @@
 		<dependency org="io.netty" name="netty-buffer" rev="4.0.17.Final" 
 			conf="compile->defalut(*)" transitive="false"/ -->
 						
-		<dependency org="com.jcraft" name="jzlib" rev="1.1.2" 
-			conf="compile->defalut(*)" transitive="false"/>		
 	</dependencies>
 </ivy-module>
