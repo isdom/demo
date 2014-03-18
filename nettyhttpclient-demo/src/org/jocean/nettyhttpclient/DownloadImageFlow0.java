@@ -40,7 +40,8 @@ public class DownloadImageFlow0 extends AbstractFlow {
 	  private static final Logger LOG =
               LoggerFactory.getLogger("DownloadImageFlow0");
 	  
-	  public final BizStep UNCONNECTED =
+	  /*
+	  public final BizStep OBTAINING =
            new BizStep("dlimg0.UNCONNECTED")
            .handler( selfInvoker("onActive") )
            .handler( selfInvoker( "onInactive") )
@@ -65,24 +66,6 @@ public class DownloadImageFlow0 extends AbstractFlow {
         	if ( LOG.isDebugEnabled() ) {
         		LOG.debug("channel for {} recv response {}", _uri, response);
         	}
-            //_buf = ctx.channel().alloc().compositeBuffer();
-//            LOG.info("dump for uri {}", _uri);
-//            LOG.info("STATUS: {}", response.getStatus());
-//            LOG.info("VERSION: {}", response.getProtocolVersion());
-//
-//            if (!response.headers().isEmpty()) {
-//                for (String name: response.headers().names()) {
-//                    for (String value: response.headers().getAll(name)) {
-//                        LOG.info("HEADER: {}={}", name, value);
-//                    }
-//                }
-//            }
-//
-//            if (HttpHeaders.isTransferEncodingChunked(response)) {
-//                LOG.info("CHUNKED CONTENT {");
-//            } else {
-//                LOG.info("CONTENT {");
-//            }
             
             return RECVRESP;
         }
@@ -140,4 +123,5 @@ public class DownloadImageFlow0 extends AbstractFlow {
     	
     	    return	request;
     	}
+    	*/
 }

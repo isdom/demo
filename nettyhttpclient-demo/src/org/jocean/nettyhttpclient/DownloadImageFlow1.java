@@ -43,7 +43,8 @@ public class DownloadImageFlow1 extends AbstractFlow {
 	private static final Logger LOG = LoggerFactory
 			.getLogger("DownloadImageFlow1");
 
-	public final BizStep UNCONNECTED = new BizStep("dlimg1.UNCONNECTED")
+	/*
+	public final BizStep OBTAINING = new BizStep("dlimg1.UNCONNECTED")
 			.handler(selfInvoker("onActive"))
 			.handler(selfInvoker("onInactive")).freeze();
 
@@ -155,4 +156,5 @@ public class DownloadImageFlow1 extends AbstractFlow {
 
 		return request;
 	}
+	*/
 }

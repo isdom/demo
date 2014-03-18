@@ -35,11 +35,15 @@ public class CustomImageView extends ImageView {
 
 	@Override
 	protected void onDraw(final Canvas canvas) {
-		LOG.info("in onDraw call for uri {}", this.getTag());
+		if ( LOG.isDebugEnabled() ) {
+			LOG.debug("in onDraw call for uri {}", this.getTag());
+		}
 		super.onDraw(canvas);
 		
 		if ( null != this._eventReceiver ) {
-			LOG.info("try to send onDraw event for uri {}", this.getTag());
+			if ( LOG.isDebugEnabled() ) {
+				LOG.debug("try to send onDraw event for uri {}", this.getTag());
+			}
 			try {
 				this._eventReceiver.acceptEvent("onDraw", this, canvas);
 			} catch (Exception e) {
@@ -51,7 +55,9 @@ public class CustomImageView extends ImageView {
 
 	public void setEventReceiver(final EventReceiver receiver) {
 		this._eventReceiver = receiver;
-		LOG.info("set uri {} CustomImageView's eventReceiver with {}", this.getTag(), receiver);
+		if ( LOG.isDebugEnabled() ) {
+			LOG.debug("set uri {} CustomImageView's eventReceiver with {}", this.getTag(), receiver);
+		}
 	}
 
 	private EventReceiver _eventReceiver = null;

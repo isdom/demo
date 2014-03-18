@@ -3,10 +3,6 @@
  */
 package org.jocean.nettyhttpclient;
 
-import io.netty.buffer.ByteBufInputStream;
-import io.netty.buffer.CompositeByteBuf;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
@@ -27,9 +23,10 @@ import org.jocean.idiom.Visitor2;
 import org.jocean.syncfsm.api.AbstractFlow;
 import org.jocean.syncfsm.api.BizStep;
 import org.jocean.syncfsm.api.EventHandler;
+import org.jocean.syncfsm.api.EventReceiver;
 import org.jocean.syncfsm.api.annotion.OnEvent;
 import org.jocean.syncfsm.api.annotion.SameThread;
-import org.jocean.transportclient.TransportEvents;
+import org.jocean.transportclient.http.HttpEvents;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,45 +42,48 @@ public class DownloadImageFlow2 extends AbstractFlow {
 	private static final Logger LOG = LoggerFactory
 			.getLogger("DownloadImageFlow2");
 
-	public final BizStep UNCONNECTED = new BizStep("dlimg2.UNCONNECTED")
-			.handler(selfInvoker("onActive"))
-			.handler(selfInvoker("onInactive")).freeze();
+	public final BizStep OBTAINING = new BizStep("dlimg2.OBTAINING")
+			.handler(selfInvoker("onHttpObtained"))
+			.handler(selfInvoker("onHttpLost")).freeze();
 
-	public final BizStep RECVRESP = new BizStep("dlimg2.RECVRESP")
+	private final BizStep RECVRESP = new BizStep("dlimg2.RECVRESP")
 			.handler(selfInvoker("responseReceived"))
-			.handler(selfInvoker("onInactive")).freeze();
+			.handler(selfInvoker("onHttpLost")).freeze();
 
-	public final BizStep RECVCONTENT = new BizStep("dlimg2.RECVCONTENT")
+	private final BizStep RECVCONTENT = new BizStep("dlimg2.RECVCONTENT")
 			.handler(selfInvoker("contentReceived"))
 			.handler(selfInvoker("lastContentReceived"))
-			.handler(selfInvoker("onInactiveAndSaveUncompleteContent"))
+			.handler(selfInvoker("onHttpLostAndSaveUncompleteContent"))
 			.freeze();
 
-	public final BizStep RECVCOMPLETE = new BizStep("dlimg2.RECVCOMPLETE")
-		.handler(selfInvoker("onInactive")).freeze();
+//	private final BizStep RECVCOMPLETE = new BizStep("dlimg2.RECVCOMPLETE")
+//		.handler(selfInvoker("onHttpLost")).freeze();
 
-	@OnEvent(event = TransportEvents.EVENT_CHANNELINACTIVE)
-	private EventHandler onInactive(final ChannelHandlerContext ctx)
+	@OnEvent(event = HttpEvents.EVENT_HTTPLOST)
+	private EventHandler onHttpLost()
 			throws Exception {
-		this._channelRemover.removeChannel(ctx.channel());
+//		this._channelRemover.removeChannel(ctx.channel());
 		if ( LOG.isDebugEnabled() ) {
-			LOG.debug("channel for {} closed.", _uri);
+			LOG.debug("http for {} lost.", _uri);
 		}
 		return null;
 	}
 
-	@OnEvent(event = TransportEvents.EVENT_CHANNELACTIVE)
-	private EventHandler onActive(final ChannelHandlerContext ctx) {
+	@OnEvent(event = HttpEvents.EVENT_HTTPOBTAINED)
+	private EventHandler onHttpObtained() {
 		// save http request
 		_request = genHttpRequest(this._uri, this._part);
 		LOG.debug("send http request {}", _request);
-		ctx.channel().writeAndFlush(_request);
+		try {
+			this._httpReceiver.acceptEvent(HttpEvents.EVENT_SENDHTTPREQUEST, this._request);
+		} catch (Exception e) {
+			LOG.warn("exception when send http request", e);
+		}
 		return RECVRESP;
 	}
 
-	@OnEvent(event = TransportEvents.EVENT_HTTPRESPONSERECEIVED)
-	private EventHandler responseReceived(final ChannelHandlerContext ctx,
-			final HttpResponse response) {
+	@OnEvent(event = HttpEvents.EVENT_HTTPRESPONSERECEIVED)
+	private EventHandler responseReceived(final HttpResponse response) {
 		LOG.debug("channel for {} recv response {}", _uri, response);
 		this._response = response;
 		if ( null != this._part ) {
@@ -98,9 +98,8 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		return RECVCONTENT;
 	}
 
-	@OnEvent(event = TransportEvents.EVENT_HTTPCONTENTRECEIVED)
-	private EventHandler contentReceived(final ChannelHandlerContext ctx,
-			final HttpContent content) {
+	@OnEvent(event = HttpEvents.EVENT_HTTPCONTENTRECEIVED)
+	private EventHandler contentReceived(final HttpContent content) {
 		final byte[] bytes = content.content().array();
 		_bytesList.add(bytes);
 		LOG.debug("channel for {} recv content, size {}", _uri, bytes.length);
@@ -108,25 +107,23 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		return RECVCONTENT;
 	}
 
-	@OnEvent(event = TransportEvents.EVENT_CHANNELINACTIVE)
-	private EventHandler onInactiveAndSaveUncompleteContent(
-			final ChannelHandlerContext ctx) throws Exception {
+	@OnEvent(event = HttpEvents.EVENT_HTTPLOST)
+	private EventHandler onHttpLostAndSaveUncompleteContent() throws Exception {
 		// Add some code to save reuse data from server
 		// ...
 		if ( null != this._uncompletedVisitor) {
 			this._uncompletedVisitor.visit(this._response, this._bytesList);
 		}
 
-		_channelRemover.removeChannel(ctx.channel());
+//		_channelRemover.removeChannel(ctx.channel());
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug("channel for {} closed.", _uri);
 		}
 		return null;
 	}
 
-	@OnEvent(event = TransportEvents.EVENT_LASTHTTPCONTENTRECEIVED)
-	private EventHandler lastContentReceived(final ChannelHandlerContext ctx,
-			final LastHttpContent content) throws Exception {
+	@OnEvent(event = HttpEvents.EVENT_LASTHTTPCONTENTRECEIVED)
+	private EventHandler lastContentReceived(final LastHttpContent content) throws Exception {
 		final byte[] bytes = content.content().array();
 		_bytesList.add(bytes);
 		LOG.debug("channel for {} recv last content, size {}", _uri,
@@ -136,7 +133,9 @@ public class DownloadImageFlow2 extends AbstractFlow {
 				.decodeStream(new ByteArrayListInputStream(_bytesList)));
 		// _buf.removeComponents(0, _buf.numComponents());
 		// _buf.release();
-		return RECVCOMPLETE;
+		//return RECVCOMPLETE;
+		this._httpReceiver.acceptEvent(HttpEvents.EVENT_RELEASEHTTP);
+		return null;
 	}
 
 	public DownloadImageFlow2(
@@ -151,6 +150,13 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		this._channelRemover = channelRemover;
 		this._uncompletedVisitor = visitor2;
 	}
+	
+	public void setHttpReceiver(final EventReceiver httpReceiver) {
+		this._httpReceiver = httpReceiver;
+	}
+
+	private EventReceiver _httpReceiver;
+	
 
 	private final Pair<HttpResponse, List<byte[]>> _part;
 	private final URI _uri;
@@ -169,7 +175,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 				HttpVersion.HTTP_1_1, HttpMethod.GET, uri.getRawPath());
 		request.headers().set(HttpHeaders.Names.HOST, host);
 		request.headers().set(HttpHeaders.Names.CONNECTION,
-				HttpHeaders.Values.CLOSE);
+				HttpHeaders.Values.KEEP_ALIVE);
 		request.headers().set(HttpHeaders.Names.ACCEPT_ENCODING,
 				HttpHeaders.Values.GZIP);
 		

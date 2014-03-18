@@ -36,7 +36,8 @@ public class HttpDemoFlow extends AbstractFlow {
 	  private static final Logger LOG =
               LoggerFactory.getLogger(HttpDemoFlow.class);
 	  
-	  public final BizStep UNCONNECTED =
+	  /*
+	  public final BizStep OBTAINING =
            new BizStep("demo.UNCONNECTED")
            .handler( selfInvoker("onActive") )
            .handler( selfInvoker("onInactive") )
@@ -124,4 +125,5 @@ public class HttpDemoFlow extends AbstractFlow {
     	    
     	    return	request;
     	}
+    	*/
 }

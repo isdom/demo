@@ -7,6 +7,7 @@ import io.netty.channel.Channel;
 import io.netty.util.ReferenceCounted;
 import io.netty.handler.codec.http.HttpResponse;
 
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.HashSet;
 import java.util.Set;
@@ -213,16 +214,21 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 							getPartFromCache(imageUrl),
 							imageUrl, uri);
 					final ShowProgressFlow progressFlow = genDrawProgressFlow(imageUrl, uri);
+					final EventReceiver receiver = genCompositeEventReceiver(downloadImageFlow, progressFlow);
 					
-					final Channel channel = _client.newChannel();
-					taskCollection.add(channel);
-					_http.launchConnect(
-							channel,
-							uri, 
-							genCompositeEventReceiver(downloadImageFlow, progressFlow),
-							false);
+					this._client.eventLoop().submit(new Runnable() {
+
+						@Override
+						public void run() {
+							final EventReceiver httpReceiver = 
+									_http.obtainHttp(uri, receiver);
+							downloadImageFlow.setHttpReceiver(httpReceiver);
+						}});
+					
+//					taskCollection.add(channel);
+					
                 	if ( LOG.isDebugEnabled() ) {
-                		LOG.debug("try to connect {}", imageUrl);
+                		LOG.debug("try to load image for {}", imageUrl);
                 	}
                 } else {  
                     setImageToView(imageUrl, bitmap);  
@@ -233,6 +239,31 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
         }  
     }
 
+//	private Visitor<InetSocketAddress> genConnectAction(final Channel channel, final URI uri) {
+//		return new Visitor<InetSocketAddress>() {
+//
+//			@Override
+//			public void visit(final InetSocketAddress remoteAddress) throws Exception {
+////				final long begin = android.os.SystemClock.uptimeMillis();
+//				
+//				if ("www.yinxiang.com".equals( remoteAddress.getHostName() ) ) {
+//					channel.connect(new InetSocketAddress("119.254.30.33", remoteAddress.getPort()));
+//					LOG.info("replace www.yinxiang.com by 119.254.30.33");
+//				}
+//				else if ( "g.hiphotos.baidu.com".equals(remoteAddress.getHostName())) {
+//					channel.connect(new InetSocketAddress("122.228.234.118", remoteAddress.getPort()));
+//					LOG.info("replace g.hiphotos.baidu.com by 122.228.234.118");
+//					
+//				}
+//				else {
+//					channel.connect(remoteAddress);
+//				}
+////				LOG.info("connect action spend time for uri:{} is {}", 
+////						uri,
+////						android.os.SystemClock.uptimeMillis() - begin);
+//			}};
+//	}
+
 	/**
 	 * @param downloadImageFlow
 	 * @param progressFlow
@@ -242,7 +273,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 			final DownloadImageFlow2 downloadImageFlow,
 			final ShowProgressFlow progressFlow) {
 		return SyncFSMUtils.combineEventReceivers( 
-				SyncFSMUtils.wrapAsyncEventReceiver(_source.create(progressFlow, progressFlow.UNCONNECTED), 
+				SyncFSMUtils.wrapAsyncEventReceiver(_source.create(progressFlow, progressFlow.OBTAINING), 
 						new Visitor<Runnable>() {
 
 							@Override
@@ -252,7 +283,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 								
 							}}, 
 							genSafeRetainArgsHandler()),
-				_source.create(downloadImageFlow, downloadImageFlow.UNCONNECTED )
+				_source.create(downloadImageFlow, downloadImageFlow.OBTAINING )
 			);
 	}
 
@@ -428,7 +459,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
    
     private final Handler _handler = new Handler();
 	private final TransportClient _client = new TransportClient();
-	private final HttpStack _http = new HttpStack();
 	private final EventReceiverSource _source = new FlowContainer("global").genEventReceiverSource();
+	private final HttpStack _http = new HttpStack( this._source, this._client, 2);
     
 }  

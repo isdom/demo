@@ -3,7 +3,6 @@
  */
 package org.jocean.nettyhttpclient;
 
-import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpRequest;
@@ -18,7 +17,7 @@ import org.jocean.syncfsm.api.EventHandler;
 import org.jocean.syncfsm.api.EventReceiver;
 import org.jocean.syncfsm.api.annotion.OnEvent;
 import org.jocean.syncfsm.api.annotion.SameThread;
-import org.jocean.transportclient.TransportEvents;
+import org.jocean.transportclient.http.HttpEvents;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,21 +39,21 @@ public class ShowProgressFlow extends AbstractFlow {
 	private static final Logger LOG = LoggerFactory
 			.getLogger("ShowProgressFlow");
 
-	public final BizStep UNCONNECTED = new BizStep("showprogress.UNCONNECTED")
-			.handler(selfInvoker("onActive"))
+	public final BizStep OBTAINING = new BizStep("showprogress.OBTAINING")
+			.handler(selfInvoker("onHttpObtained"))
 			.handler(selfInvoker("onDrawOnConnecting"))
-			.handler(selfInvoker("onInactive")).freeze();
+			.handler(selfInvoker("onHttpLost")).freeze();
 
 	private final BizStep RECVRESP = new BizStep("showprogress.RECVRESP")
 			.handler(selfInvoker("responseReceived"))
 			.handler(selfInvoker("onDrawOnRecvResp"))
-			.handler(selfInvoker("onInactive")).freeze();
+			.handler(selfInvoker("onHttpLost")).freeze();
 
 	private final BizStep RECVCONTENT = new BizStep("showprogress.RECVCONTENT")
 			.handler(selfInvoker("contentReceived"))
 			.handler(selfInvoker("lastContentReceived"))
 			.handler(selfInvoker("onDrawOnRecvContent"))
-			.handler(selfInvoker("onInactive"))
+			.handler(selfInvoker("onHttpLost"))
 			.freeze();
 
 	@Override
@@ -64,8 +63,8 @@ public class ShowProgressFlow extends AbstractFlow {
 		this._view.invalidate();
 	}
 
-	@OnEvent(event = TransportEvents.EVENT_CHANNELINACTIVE)
-	private EventHandler onInactive(final ChannelHandlerContext ctx)
+	@OnEvent(event = HttpEvents.EVENT_HTTPLOST)
+	private EventHandler onHttpLost()
 			throws Exception {
 		this._collection.removeEventReceiver( selfEventReceiver() );
 		if ( LOG.isDebugEnabled() ) {
@@ -74,8 +73,8 @@ public class ShowProgressFlow extends AbstractFlow {
 		return null;
 	}
 
-	@OnEvent(event = TransportEvents.EVENT_CHANNELACTIVE)
-	private EventHandler onActive(final ChannelHandlerContext ctx) {
+	@OnEvent(event = HttpEvents.EVENT_HTTPOBTAINED)
+	private EventHandler onHttpObtained() {
 		this._view.invalidate();
 		return RECVRESP;
 	}
@@ -132,9 +131,8 @@ public class ShowProgressFlow extends AbstractFlow {
 		return this.currentEventHandler();
 	}
 	
-	@OnEvent(event = TransportEvents.EVENT_HTTPRESPONSERECEIVED)
-	private EventHandler responseReceived(final ChannelHandlerContext ctx,
-			final HttpResponse response) {
+	@OnEvent(event = HttpEvents.EVENT_HTTPRESPONSERECEIVED)
+	private EventHandler responseReceived(final HttpResponse response) {
 		if ( LOG.isDebugEnabled()) {
 			LOG.debug("channel for {} recv response {}", _uri, response);
 		}
@@ -166,9 +164,8 @@ public class ShowProgressFlow extends AbstractFlow {
 		return RECVCONTENT;
 	}
 
-	@OnEvent(event = TransportEvents.EVENT_HTTPCONTENTRECEIVED)
-	private EventHandler contentReceived(final ChannelHandlerContext ctx,
-			final HttpContent content) {
+	@OnEvent(event = HttpEvents.EVENT_HTTPCONTENTRECEIVED)
+	private EventHandler contentReceived(final HttpContent content) {
 		final byte[] bytes = content.content().array();
 		_progress += bytes.length;
 		LOG.info("progress: uri {}, {}/{}", new Object[]{ _uri, this._progress, this._contentLength});
@@ -181,9 +178,8 @@ public class ShowProgressFlow extends AbstractFlow {
 		return RECVCONTENT;
 	}
 
-	@OnEvent(event = TransportEvents.EVENT_LASTHTTPCONTENTRECEIVED)
-	private EventHandler lastContentReceived(final ChannelHandlerContext ctx,
-			final LastHttpContent content) throws Exception {
+	@OnEvent(event = HttpEvents.EVENT_LASTHTTPCONTENTRECEIVED)
+	private EventHandler lastContentReceived(final LastHttpContent content) throws Exception {
 		final byte[] bytes = content.content().array();
 		_progress += bytes.length;
 		LOG.info("end of progress: uri {}, {}/{}", new Object[]{ _uri, this._progress, this._contentLength});
