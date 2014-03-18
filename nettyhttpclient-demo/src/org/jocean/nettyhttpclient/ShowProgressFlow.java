@@ -42,12 +42,14 @@ public class ShowProgressFlow extends AbstractFlow {
 	public final BizStep OBTAINING = new BizStep("showprogress.OBTAINING")
 			.handler(selfInvoker("onHttpObtained"))
 			.handler(selfInvoker("onDrawOnConnecting"))
-			.handler(selfInvoker("onHttpLost")).freeze();
+			.handler(selfInvoker("onHttpLost"))
+			.freeze();
 
 	private final BizStep RECVRESP = new BizStep("showprogress.RECVRESP")
 			.handler(selfInvoker("responseReceived"))
 			.handler(selfInvoker("onDrawOnRecvResp"))
-			.handler(selfInvoker("onHttpLost")).freeze();
+			.handler(selfInvoker("onHttpLost"))
+			.freeze();
 
 	private final BizStep RECVCONTENT = new BizStep("showprogress.RECVCONTENT")
 			.handler(selfInvoker("contentReceived"))
@@ -68,7 +70,7 @@ public class ShowProgressFlow extends AbstractFlow {
 			throws Exception {
 		this._collection.removeEventReceiver( selfEventReceiver() );
 		if ( LOG.isDebugEnabled() ) {
-			LOG.debug("channel for {} closed.", _uri);
+			LOG.debug("http for {} lost.", _uri);
 		}
 		return null;
 	}

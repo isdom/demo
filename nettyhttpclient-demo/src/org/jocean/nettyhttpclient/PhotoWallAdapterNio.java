@@ -3,15 +3,13 @@
  */
 package org.jocean.nettyhttpclient;
 
-import io.netty.channel.Channel;
-import io.netty.util.ReferenceCounted;
 import io.netty.handler.codec.http.HttpResponse;
+import io.netty.util.ReferenceCounted;
 
-import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.HashSet;
-import java.util.Set;
 import java.util.List;
+import java.util.Set;
 
 import org.jocean.idiom.Pair;
 import org.jocean.idiom.Visitor;
@@ -47,10 +45,6 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 	  
 	  private static final Logger LOG =
               LoggerFactory.getLogger("PhotoWallAdapterNio");
-    /** 
-     * 记录所有正在下载或等待下载的任务。 
-     */  
-    private Set<Channel> taskCollection;  
   
     /** 
      * 图片缓存技术的核心类，用于缓存所有下载好的图片，在程序内存达到设定值时会将最少最近使用的图片移除掉。 
@@ -81,7 +75,6 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
             GridView photoWall) {  
         super(context, textViewResourceId, objects);  
         mPhotoWall = photoWall;  
-        taskCollection = new HashSet<Channel>();
         // 获取应用程序最大可用内存  
         int maxMemory = (int) Runtime.getRuntime().maxMemory();  
         LOG.info("max Memory is {}", maxMemory);
@@ -214,18 +207,20 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 							getPartFromCache(imageUrl),
 							imageUrl, uri);
 					final ShowProgressFlow progressFlow = genDrawProgressFlow(imageUrl, uri);
-					final EventReceiver receiver = genCompositeEventReceiver(downloadImageFlow, progressFlow);
+					final EventReceiver mainReceiver = _source.create(downloadImageFlow, downloadImageFlow.OBTAINING );
+					this._receivers.add(mainReceiver);
+					
+					final EventReceiver compositeReceiver = genCompositeEventReceiver(mainReceiver, progressFlow);
 					
 					this._client.eventLoop().submit(new Runnable() {
 
 						@Override
 						public void run() {
 							final EventReceiver httpReceiver = 
-									_http.obtainHttp(uri, receiver);
+									_http.obtainHttp(uri, compositeReceiver);
 							downloadImageFlow.setHttpReceiver(httpReceiver);
 						}});
 					
-//					taskCollection.add(channel);
 					
                 	if ( LOG.isDebugEnabled() ) {
                 		LOG.debug("try to load image for {}", imageUrl);
@@ -239,41 +234,17 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
         }  
     }
 
-//	private Visitor<InetSocketAddress> genConnectAction(final Channel channel, final URI uri) {
-//		return new Visitor<InetSocketAddress>() {
-//
-//			@Override
-//			public void visit(final InetSocketAddress remoteAddress) throws Exception {
-////				final long begin = android.os.SystemClock.uptimeMillis();
-//				
-//				if ("www.yinxiang.com".equals( remoteAddress.getHostName() ) ) {
-//					channel.connect(new InetSocketAddress("119.254.30.33", remoteAddress.getPort()));
-//					LOG.info("replace www.yinxiang.com by 119.254.30.33");
-//				}
-//				else if ( "g.hiphotos.baidu.com".equals(remoteAddress.getHostName())) {
-//					channel.connect(new InetSocketAddress("122.228.234.118", remoteAddress.getPort()));
-//					LOG.info("replace g.hiphotos.baidu.com by 122.228.234.118");
-//					
-//				}
-//				else {
-//					channel.connect(remoteAddress);
-//				}
-////				LOG.info("connect action spend time for uri:{} is {}", 
-////						uri,
-////						android.os.SystemClock.uptimeMillis() - begin);
-//			}};
-//	}
-
 	/**
 	 * @param downloadImageFlow
 	 * @param progressFlow
 	 * @return
 	 */
 	private EventReceiver genCompositeEventReceiver(
-			final DownloadImageFlow2 downloadImageFlow,
+			final EventReceiver mainReceiver,
 			final ShowProgressFlow progressFlow) {
 		return SyncFSMUtils.combineEventReceivers( 
-				SyncFSMUtils.wrapAsyncEventReceiver(_source.create(progressFlow, progressFlow.OBTAINING), 
+				SyncFSMUtils.wrapAsyncEventReceiver(
+						_source.create(progressFlow, progressFlow.OBTAINING), 
 						new Visitor<Runnable>() {
 
 							@Override
@@ -283,7 +254,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 								
 							}}, 
 							genSafeRetainArgsHandler()),
-				_source.create(downloadImageFlow, downloadImageFlow.OBTAINING )
+				mainReceiver
 			);
 	}
 
@@ -327,15 +298,15 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 		final DownloadImageFlow2 downloadImageFlow = new DownloadImageFlow2(
 			(null != partBody ?  Pair.of(partBody.response, partBody.bytesList) : null),
 			uri, 
-			new ChannelRemover() {
+			new ReceiverRemover() {
 
 				@Override
-				public void removeChannel(final Channel channel) {
+				public void removeReceiver(final EventReceiver receiver) {
 					_handler.post(new Runnable() {
 
 						@Override
 						public void run() {
-							taskCollection.remove(channel);
+							_receivers.remove(receiver);
 						}});
 				}},
 			new Visitor<Bitmap>() {
@@ -430,11 +401,20 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
      * 取消所有正在下载或等待下载的任务。 
      */  
     public void cancelAllTasks() {  
-        if (taskCollection != null) {  
-            for (Channel channel : taskCollection) {  
-            	channel.close();
-            }  
+        for (EventReceiver receiver : this._receivers) {  
+        	final EventReceiver dlreceiver = receiver;
+        	this._client.eventLoop().submit(new Runnable() {
+
+				@Override
+				public void run() {
+					try {
+						dlreceiver.acceptEvent("cancel");
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}});
         }  
+        this._receivers.clear();
     }  
 
     private static final class PartBody {
@@ -454,6 +434,11 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 			return totalSize;
 		}
     };
+    
+    /** 
+     * 记录所有正在下载或等待下载的任务。 
+     */  
+    private final Set<EventReceiver> _receivers = new HashSet<EventReceiver>();
     
     private LruCache<String, PartBody> _partsCache;
    

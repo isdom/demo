@@ -44,25 +44,53 @@ public class DownloadImageFlow2 extends AbstractFlow {
 
 	public final BizStep OBTAINING = new BizStep("dlimg2.OBTAINING")
 			.handler(selfInvoker("onHttpObtained"))
-			.handler(selfInvoker("onHttpLost")).freeze();
+			.handler(selfInvoker("onHttpLost"))
+			.handler(selfInvoker("onCanceled"))
+			.freeze();
 
 	private final BizStep RECVRESP = new BizStep("dlimg2.RECVRESP")
 			.handler(selfInvoker("responseReceived"))
-			.handler(selfInvoker("onHttpLost")).freeze();
+			.handler(selfInvoker("onHttpLost"))
+			.handler(selfInvoker("onCanceled"))
+			.freeze();
 
 	private final BizStep RECVCONTENT = new BizStep("dlimg2.RECVCONTENT")
 			.handler(selfInvoker("contentReceived"))
 			.handler(selfInvoker("lastContentReceived"))
+			.handler(selfInvoker("onCanceledAndSaveUncompleteContent"))
 			.handler(selfInvoker("onHttpLostAndSaveUncompleteContent"))
 			.freeze();
 
-//	private final BizStep RECVCOMPLETE = new BizStep("dlimg2.RECVCOMPLETE")
-//		.handler(selfInvoker("onHttpLost")).freeze();
-
+	@OnEvent(event="cancel")
+	private EventHandler onCanceled() throws Exception {
+		if ( LOG.isDebugEnabled() ) {
+			LOG.debug("download {} progress canceled", _uri);
+		}
+		if ( null != this._httpReceiver ) {
+			this._httpReceiver.acceptEvent(HttpEvents.EVENT_RELEASEHTTP);
+		}
+		return null;
+		
+	}
+	
+	@OnEvent(event="cancel")
+	private EventHandler onCanceledAndSaveUncompleteContent() throws Exception {
+		if ( LOG.isDebugEnabled() ) {
+			LOG.debug("download {} progress canceled", _uri);
+		}
+		if ( null != this._httpReceiver ) {
+			this._httpReceiver.acceptEvent(HttpEvents.EVENT_RELEASEHTTP);
+		}
+		if ( null != this._uncompletedVisitor) {
+			this._uncompletedVisitor.visit(this._response, this._bytesList);
+		}
+		return null;
+	}
+	
 	@OnEvent(event = HttpEvents.EVENT_HTTPLOST)
 	private EventHandler onHttpLost()
 			throws Exception {
-//		this._channelRemover.removeChannel(ctx.channel());
+		_receiverRemover.removeReceiver(selfEventReceiver());
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug("http for {} lost.", _uri);
 		}
@@ -115,7 +143,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 			this._uncompletedVisitor.visit(this._response, this._bytesList);
 		}
 
-//		_channelRemover.removeChannel(ctx.channel());
+		_receiverRemover.removeReceiver(selfEventReceiver());
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug("channel for {} closed.", _uri);
 		}
@@ -133,7 +161,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 				.decodeStream(new ByteArrayListInputStream(_bytesList)));
 		// _buf.removeComponents(0, _buf.numComponents());
 		// _buf.release();
-		//return RECVCOMPLETE;
+		_receiverRemover.removeReceiver(selfEventReceiver());
 		this._httpReceiver.acceptEvent(HttpEvents.EVENT_RELEASEHTTP);
 		return null;
 	}
@@ -141,13 +169,13 @@ public class DownloadImageFlow2 extends AbstractFlow {
 	public DownloadImageFlow2(
 			final Pair<HttpResponse, List<byte[]>> part,
 			final URI uri, 
-			final ChannelRemover channelRemover,
+			final ReceiverRemover channelRemover,
 			final Visitor<Bitmap> bitmapVisitor,
 			final Visitor2<HttpResponse, List<byte[]>> visitor2) {
 		this._part = part;
 		this._uri = uri;
 		this._bitmapVisitor = bitmapVisitor;
-		this._channelRemover = channelRemover;
+		this._receiverRemover = channelRemover;
 		this._uncompletedVisitor = visitor2;
 	}
 	
@@ -162,7 +190,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 	private final URI _uri;
 	private final List<byte[]> _bytesList = new ArrayList<byte[]>();
 	private final Visitor<Bitmap> _bitmapVisitor;
-	private final ChannelRemover _channelRemover;
+	private final ReceiverRemover _receiverRemover;
 	private final Visitor2<HttpResponse, List<byte[]>> _uncompletedVisitor;
 	private HttpRequest _request;
 	private HttpResponse _response;
@@ -174,8 +202,8 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		final HttpRequest request = new DefaultFullHttpRequest(
 				HttpVersion.HTTP_1_1, HttpMethod.GET, uri.getRawPath());
 		request.headers().set(HttpHeaders.Names.HOST, host);
-		request.headers().set(HttpHeaders.Names.CONNECTION,
-				HttpHeaders.Values.KEEP_ALIVE);
+//		request.headers().set(HttpHeaders.Names.CONNECTION,
+//				HttpHeaders.Values.KEEP_ALIVE);
 		request.headers().set(HttpHeaders.Names.ACCEPT_ENCODING,
 				HttpHeaders.Values.GZIP);
 		

@@ -128,7 +128,7 @@ public class DownloadImageFlow1 extends AbstractFlow {
 		return RECVCOMPLETE;
 	}
 
-	public DownloadImageFlow1(final URI uri, final ChannelRemover channelRemover,
+	public DownloadImageFlow1(final URI uri, final ReceiverRemover channelRemover,
 			final Visitor<Bitmap> visitor) {
 		this._uri = uri;
 		this._bitmapVisitor = visitor;
@@ -138,7 +138,7 @@ public class DownloadImageFlow1 extends AbstractFlow {
 	private final URI _uri;
 	private final List<byte[]> _bytesList = new ArrayList<byte[]>();
 	private final Visitor<Bitmap> _bitmapVisitor;
-	private final ChannelRemover _channelRemover;
+	private final ReceiverRemover _channelRemover;
 	private HttpRequest _request;
 	private HttpResponse _response;
 
