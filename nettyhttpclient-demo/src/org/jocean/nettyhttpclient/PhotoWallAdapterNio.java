@@ -11,6 +11,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.jocean.idiom.Detachable;
 import org.jocean.idiom.Pair;
 import org.jocean.idiom.Visitor;
 import org.jocean.idiom.Visitor2;
@@ -21,6 +22,7 @@ import org.jocean.syncfsm.api.SyncFSMUtils;
 import org.jocean.syncfsm.container.FlowContainer;
 import org.jocean.transportclient.HttpStack;
 import org.jocean.transportclient.TransportClient;
+import org.jocean.transportclient.api.HttpReactor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -210,15 +212,16 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 					final EventReceiver mainReceiver = _source.create(downloadImageFlow, downloadImageFlow.OBTAINING );
 					this._receivers.add(mainReceiver);
 					
-					final EventReceiver compositeReceiver = genCompositeEventReceiver(mainReceiver, progressFlow);
+					final HttpReactor reactor =new ReactorAdapter(
+							genCompositeEventReceiver(mainReceiver, progressFlow) );
 					
 					this._client.eventLoop().submit(new Runnable() {
 
 						@Override
 						public void run() {
-							final EventReceiver httpReceiver = 
-									_http.obtainHttp(uri, compositeReceiver);
-							downloadImageFlow.setHttpReceiver(httpReceiver);
+							final Detachable canceller = 
+									_http.obtainHttp(uri, reactor);
+							downloadImageFlow.setCanceller(canceller);
 						}});
 					
 					

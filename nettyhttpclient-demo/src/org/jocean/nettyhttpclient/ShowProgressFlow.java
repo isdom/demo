@@ -17,7 +17,7 @@ import org.jocean.syncfsm.api.EventHandler;
 import org.jocean.syncfsm.api.EventReceiver;
 import org.jocean.syncfsm.api.annotion.OnEvent;
 import org.jocean.syncfsm.api.annotion.SameThread;
-import org.jocean.transportclient.http.HttpEvents;
+import org.jocean.transportclient.api.HttpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,7 +65,7 @@ public class ShowProgressFlow extends AbstractFlow {
 		this._view.invalidate();
 	}
 
-	@OnEvent(event = HttpEvents.EVENT_HTTPLOST)
+	@OnEvent(event = Events.HTTPLOST)
 	private EventHandler onHttpLost()
 			throws Exception {
 		this._collection.removeEventReceiver( selfEventReceiver() );
@@ -75,8 +75,8 @@ public class ShowProgressFlow extends AbstractFlow {
 		return null;
 	}
 
-	@OnEvent(event = HttpEvents.EVENT_HTTPOBTAINED)
-	private EventHandler onHttpObtained() {
+	@OnEvent(event = Events.HTTPOBTAINED)
+	private EventHandler onHttpObtained(final HttpClient httpclient) {
 		this._view.invalidate();
 		return RECVRESP;
 	}
@@ -133,7 +133,7 @@ public class ShowProgressFlow extends AbstractFlow {
 		return this.currentEventHandler();
 	}
 	
-	@OnEvent(event = HttpEvents.EVENT_HTTPRESPONSERECEIVED)
+	@OnEvent(event = Events.HTTPRESPONSERECEIVED)
 	private EventHandler responseReceived(final HttpResponse response) {
 		if ( LOG.isDebugEnabled()) {
 			LOG.debug("channel for {} recv response {}", _uri, response);
@@ -166,7 +166,7 @@ public class ShowProgressFlow extends AbstractFlow {
 		return RECVCONTENT;
 	}
 
-	@OnEvent(event = HttpEvents.EVENT_HTTPCONTENTRECEIVED)
+	@OnEvent(event = Events.HTTPCONTENTRECEIVED)
 	private EventHandler contentReceived(final HttpContent content) {
 		final byte[] bytes = content.content().array();
 		_progress += bytes.length;
@@ -180,7 +180,7 @@ public class ShowProgressFlow extends AbstractFlow {
 		return RECVCONTENT;
 	}
 
-	@OnEvent(event = HttpEvents.EVENT_LASTHTTPCONTENTRECEIVED)
+	@OnEvent(event = Events.LASTHTTPCONTENTRECEIVED)
 	private EventHandler lastContentReceived(final LastHttpContent content) throws Exception {
 		final byte[] bytes = content.content().array();
 		_progress += bytes.length;

@@ -17,16 +17,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.jocean.idiom.ByteArrayListInputStream;
+import org.jocean.idiom.Detachable;
 import org.jocean.idiom.Pair;
 import org.jocean.idiom.Visitor;
 import org.jocean.idiom.Visitor2;
 import org.jocean.syncfsm.api.AbstractFlow;
 import org.jocean.syncfsm.api.BizStep;
 import org.jocean.syncfsm.api.EventHandler;
-import org.jocean.syncfsm.api.EventReceiver;
 import org.jocean.syncfsm.api.annotion.OnEvent;
 import org.jocean.syncfsm.api.annotion.SameThread;
-import org.jocean.transportclient.http.HttpEvents;
+import org.jocean.transportclient.api.HttpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,6 +39,7 @@ import android.graphics.BitmapFactory;
  */
 @SameThread
 public class DownloadImageFlow2 extends AbstractFlow {
+	
 	private static final Logger LOG = LoggerFactory
 			.getLogger("DownloadImageFlow2");
 
@@ -61,14 +62,24 @@ public class DownloadImageFlow2 extends AbstractFlow {
 			.handler(selfInvoker("onHttpLostAndSaveUncompleteContent"))
 			.freeze();
 
+	private void safeDetach() {
+		if ( null != this._pendingCanceller ) {
+			this._pendingCanceller.detach();
+			this._pendingCanceller = null;
+		}
+		
+		if ( null != this._httpClient ) {
+			this._httpClient.detach();
+			this._httpClient = null;
+		}
+	}
+	
 	@OnEvent(event="cancel")
 	private EventHandler onCanceled() throws Exception {
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug("download {} progress canceled", _uri);
 		}
-		if ( null != this._httpReceiver ) {
-			this._httpReceiver.acceptEvent(HttpEvents.EVENT_RELEASEHTTP);
-		}
+		safeDetach();
 		return null;
 		
 	}
@@ -78,16 +89,14 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug("download {} progress canceled", _uri);
 		}
-		if ( null != this._httpReceiver ) {
-			this._httpReceiver.acceptEvent(HttpEvents.EVENT_RELEASEHTTP);
-		}
+		safeDetach();
 		if ( null != this._uncompletedVisitor) {
 			this._uncompletedVisitor.visit(this._response, this._bytesList);
 		}
 		return null;
 	}
 	
-	@OnEvent(event = HttpEvents.EVENT_HTTPLOST)
+	@OnEvent(event = Events.HTTPLOST)
 	private EventHandler onHttpLost()
 			throws Exception {
 		_receiverRemover.removeReceiver(selfEventReceiver());
@@ -97,20 +106,20 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		return null;
 	}
 
-	@OnEvent(event = HttpEvents.EVENT_HTTPOBTAINED)
-	private EventHandler onHttpObtained() {
+	@OnEvent(event = Events.HTTPOBTAINED)
+	private EventHandler onHttpObtained(final HttpClient httpclient) {
 		// save http request
-		_request = genHttpRequest(this._uri, this._part);
-		LOG.debug("send http request {}", _request);
-		try {
-			this._httpReceiver.acceptEvent(HttpEvents.EVENT_SENDHTTPREQUEST, this._request);
-		} catch (Exception e) {
-			LOG.warn("exception when send http request", e);
+		this._pendingCanceller = null;
+		this._httpClient = httpclient;
+		this._request = genHttpRequest(this._uri, this._part);
+		if ( LOG.isDebugEnabled() ) {
+			LOG.debug("send http request {}", _request);
 		}
+		httpclient.sendHttpRequest( this._request);
 		return RECVRESP;
 	}
 
-	@OnEvent(event = HttpEvents.EVENT_HTTPRESPONSERECEIVED)
+	@OnEvent(event = Events.HTTPRESPONSERECEIVED)
 	private EventHandler responseReceived(final HttpResponse response) {
 		LOG.debug("channel for {} recv response {}", _uri, response);
 		this._response = response;
@@ -119,14 +128,14 @@ public class DownloadImageFlow2 extends AbstractFlow {
 			final String contentRange = response.headers().get(HttpHeaders.Names.CONTENT_RANGE);
 			if ( null != contentRange ) {
 				// assume Partial
-				_bytesList.addAll(this._part.second);
+				this._bytesList.addAll(this._part.second);
 				LOG.info("uri {}, recv partial get response, detail: {}", _uri, contentRange);
 			}
 		}
 		return RECVCONTENT;
 	}
 
-	@OnEvent(event = HttpEvents.EVENT_HTTPCONTENTRECEIVED)
+	@OnEvent(event = Events.HTTPCONTENTRECEIVED)
 	private EventHandler contentReceived(final HttpContent content) {
 		final byte[] bytes = content.content().array();
 		_bytesList.add(bytes);
@@ -135,7 +144,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		return RECVCONTENT;
 	}
 
-	@OnEvent(event = HttpEvents.EVENT_HTTPLOST)
+	@OnEvent(event = Events.HTTPLOST)
 	private EventHandler onHttpLostAndSaveUncompleteContent() throws Exception {
 		// Add some code to save reuse data from server
 		// ...
@@ -150,7 +159,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		return null;
 	}
 
-	@OnEvent(event = HttpEvents.EVENT_LASTHTTPCONTENTRECEIVED)
+	@OnEvent(event = Events.LASTHTTPCONTENTRECEIVED)
 	private EventHandler lastContentReceived(final LastHttpContent content) throws Exception {
 		final byte[] bytes = content.content().array();
 		_bytesList.add(bytes);
@@ -162,7 +171,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		// _buf.removeComponents(0, _buf.numComponents());
 		// _buf.release();
 		_receiverRemover.removeReceiver(selfEventReceiver());
-		this._httpReceiver.acceptEvent(HttpEvents.EVENT_RELEASEHTTP);
+		this._httpClient.detach();
 		return null;
 	}
 
@@ -179,12 +188,12 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		this._uncompletedVisitor = visitor2;
 	}
 	
-	public void setHttpReceiver(final EventReceiver httpReceiver) {
-		this._httpReceiver = httpReceiver;
+	public void setCanceller(final Detachable canceller) {
+		this._pendingCanceller = canceller;
 	}
 
-	private EventReceiver _httpReceiver;
-	
+	private Detachable	_pendingCanceller;
+	private HttpClient	_httpClient;
 
 	private final Pair<HttpResponse, List<byte[]>> _part;
 	private final URI _uri;
