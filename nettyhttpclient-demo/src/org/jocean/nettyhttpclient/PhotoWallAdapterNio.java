@@ -73,7 +73,10 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
      */  
     private boolean isFirstEnter = true;  
   
-    public PhotoWallAdapterNio(Context context, int textViewResourceId, String[] objects,  
+    public PhotoWallAdapterNio(
+    		Context context, 
+    		int textViewResourceId, 
+    		String[] objects,  
             GridView photoWall) {  
         super(context, textViewResourceId, objects);  
         mPhotoWall = photoWall;  
@@ -100,6 +103,8 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
                 return	body.bytesSize();
             }  
         };
+        
+        LOG.info("it's main classloader is {}", this.getClass().getClassLoader() );
     }  
   
     @Override  

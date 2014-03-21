@@ -62,24 +62,12 @@ public class DownloadImageFlow2 extends AbstractFlow {
 			.handler(selfInvoker("onHttpLostAndSaveUncompleteContent"))
 			.freeze();
 
-	private void safeDetach() {
-		if ( null != this._pendingCanceller ) {
-			this._pendingCanceller.detach();
-			this._pendingCanceller = null;
-		}
-		
-		if ( null != this._httpClient ) {
-			this._httpClient.detach();
-			this._httpClient = null;
-		}
-	}
-	
 	@OnEvent(event="cancel")
 	private EventHandler onCanceled() throws Exception {
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug("download {} progress canceled", _uri);
 		}
-		safeDetach();
+		this._detachable.detach();
 		return null;
 		
 	}
@@ -89,7 +77,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug("download {} progress canceled", _uri);
 		}
-		safeDetach();
+		this._detachable.detach();
 		if ( null != this._uncompletedVisitor) {
 			this._uncompletedVisitor.visit(this._response, this._bytesList);
 		}
@@ -109,8 +97,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 	@OnEvent(event = Events.HTTPOBTAINED)
 	private EventHandler onHttpObtained(final HttpClient httpclient) {
 		// save http request
-		this._pendingCanceller = null;
-		this._httpClient = httpclient;
+		this._detachable = null;
 		this._request = genHttpRequest(this._uri, this._part);
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug("send http request {}", _request);
@@ -171,7 +158,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		// _buf.removeComponents(0, _buf.numComponents());
 		// _buf.release();
 		_receiverRemover.removeReceiver(selfEventReceiver());
-		this._httpClient.detach();
+		this._detachable.detach();
 		return null;
 	}
 
@@ -189,11 +176,10 @@ public class DownloadImageFlow2 extends AbstractFlow {
 	}
 	
 	public void setCanceller(final Detachable canceller) {
-		this._pendingCanceller = canceller;
+		this._detachable = canceller;
 	}
 
-	private Detachable	_pendingCanceller;
-	private HttpClient	_httpClient;
+	private Detachable	_detachable;
 
 	private final Pair<HttpResponse, List<byte[]>> _part;
 	private final URI _uri;
