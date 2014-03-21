@@ -97,7 +97,6 @@ public class DownloadImageFlow2 extends AbstractFlow {
 	@OnEvent(event = Events.HTTPOBTAINED)
 	private EventHandler onHttpObtained(final HttpClient httpclient) {
 		// save http request
-		this._detachable = null;
 		this._request = genHttpRequest(this._uri, this._part);
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug("send http request {}", _request);

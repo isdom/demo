@@ -26,7 +26,10 @@
 		<artifact name="${module.name}" type="javadoc" ext="jar" conf="develop" />
 	</publications>
 	<dependencies>
-		<dependency org="io.netty" name="netty-all" rev="4.0.17.Final" 
-			conf="compile->defalut(*)" transitive="false" />
+	   	<dependency org="com.github.tony19" name="logback-android-core" rev="1.1.1-2" 
+			conf="compile->defalut(*)" transitive="false"/>
+			
+	   	<dependency org="com.github.tony19" name="logback-android-classic" rev="1.1.1-2" 
+			conf="compile->defalut(*)" transitive="false"/>
 	</dependencies>
 </ivy-module>
