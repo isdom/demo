@@ -11,7 +11,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.jocean.idiom.Detachable;
 import org.jocean.idiom.Pair;
 import org.jocean.idiom.Visitor;
 import org.jocean.idiom.Visitor2;
@@ -224,9 +223,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 
 						@Override
 						public void run() {
-							final Detachable canceller = 
-									_http.obtainHttp(uri, reactor);
-							downloadImageFlow.setCanceller(canceller);
+							downloadImageFlow._handle.obtainHttpClient(reactor);
 						}});
 					
 					
@@ -304,6 +301,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 			final String imageUrl,
 			final URI uri) {
 		final DownloadImageFlow2 downloadImageFlow = new DownloadImageFlow2(
+			_http.createHttpClientHandle(uri),
 			(null != partBody ?  Pair.of(partBody.response, partBody.bytesList) : null),
 			uri, 
 			new ReceiverRemover() {

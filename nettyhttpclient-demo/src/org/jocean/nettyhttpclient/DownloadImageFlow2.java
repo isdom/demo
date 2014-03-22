@@ -27,6 +27,7 @@ import org.jocean.syncfsm.api.EventHandler;
 import org.jocean.syncfsm.api.annotion.OnEvent;
 import org.jocean.syncfsm.api.annotion.SameThread;
 import org.jocean.transportclient.api.HttpClient;
+import org.jocean.transportclient.api.HttpClientHandle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,7 +68,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug("download {} progress canceled", _uri);
 		}
-		this._detachable.detach();
+		this._handle.detach();
 		return null;
 		
 	}
@@ -77,7 +78,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug("download {} progress canceled", _uri);
 		}
-		this._detachable.detach();
+		this._handle.detach();
 		if ( null != this._uncompletedVisitor) {
 			this._uncompletedVisitor.visit(this._response, this._bytesList);
 		}
@@ -157,16 +158,18 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		// _buf.removeComponents(0, _buf.numComponents());
 		// _buf.release();
 		_receiverRemover.removeReceiver(selfEventReceiver());
-		this._detachable.detach();
+		this._handle.detach();
 		return null;
 	}
 
 	public DownloadImageFlow2(
+			final HttpClientHandle handle,
 			final Pair<HttpResponse, List<byte[]>> part,
 			final URI uri, 
 			final ReceiverRemover channelRemover,
 			final Visitor<Bitmap> bitmapVisitor,
 			final Visitor2<HttpResponse, List<byte[]>> visitor2) {
+		this._handle = handle;
 		this._part = part;
 		this._uri = uri;
 		this._bitmapVisitor = bitmapVisitor;
@@ -174,11 +177,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		this._uncompletedVisitor = visitor2;
 	}
 	
-	public void setCanceller(final Detachable canceller) {
-		this._detachable = canceller;
-	}
-
-	private Detachable	_detachable;
+	public final HttpClientHandle	_handle;
 
 	private final Pair<HttpResponse, List<byte[]>> _part;
 	private final URI _uri;
