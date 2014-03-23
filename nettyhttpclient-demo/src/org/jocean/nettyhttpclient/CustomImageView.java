@@ -3,7 +3,6 @@
  */
 package org.jocean.nettyhttpclient;
 
-import org.jocean.syncfsm.api.EventReceiver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,25 +39,15 @@ public class CustomImageView extends ImageView {
 		}
 		super.onDraw(canvas);
 		
-		if ( null != this._eventReceiver ) {
-			if ( LOG.isDebugEnabled() ) {
-				LOG.debug("try to send onDraw event for uri {}", this.getTag());
-			}
-			try {
-				this._eventReceiver.acceptEvent("onDraw", this, canvas);
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
+		if ( null != this._drawable ) {
+			this._drawable.drawOnView(this, canvas);
 		}
 
 	}
 
-	public void setEventReceiver(final EventReceiver receiver) {
-		this._eventReceiver = receiver;
-		if ( LOG.isDebugEnabled() ) {
-			LOG.debug("set uri {} CustomImageView's eventReceiver with {}", this.getTag(), receiver);
-		}
+	public void setDrawable(final DrawableOnView drawable) {
+		this._drawable = drawable;
 	}
 
-	private EventReceiver _eventReceiver = null;
+	private DrawableOnView _drawable = null;
 }

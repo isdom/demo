@@ -217,7 +217,8 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 					this._receivers.add(mainReceiver);
 					
 					downloadImageFlow._handle.obtainHttpClient(
-							new ReactorAdapter( genCompositeEventReceiver(mainReceiver, progressFlow) ));
+							(HttpReactor) SyncFSMUtils.buildInterfaceAdapter(HttpReactor.class, 
+							genCompositeEventReceiver(mainReceiver, progressFlow) ));
 					
                 	if ( LOG.isDebugEnabled() ) {
                 		LOG.debug("try to load image for {}", imageUrl);
@@ -260,26 +261,13 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 	 * @param uri
 	 * @return
 	 */
-	private ShowProgressFlow genDrawProgressFlow(final String imageUrl,
+	private ShowProgressFlow genDrawProgressFlow(
+			final String imageUrl,
 			final URI uri) {
 		return new ShowProgressFlow( 
 				this.getContext(), 
 				getImageViewOf(imageUrl),
-				uri, new EventReceiverCollection() {
-
-			@Override
-			public void addEventReceiver(
-					final EventReceiver eventReceiver) {
-				LOG.info("add {}", eventReceiver);
-				attachEventReceiverToImageView(imageUrl, eventReceiver);
-			}
-
-			@Override
-			public void removeEventReceiver(
-					final EventReceiver eventReceiver) {
-				LOG.info("remove {}", eventReceiver);
-				detachEventReceiverFromImageView(imageUrl, eventReceiver);
-			}} );
+				uri);
 	}
 
 	/**
@@ -342,22 +330,6 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 		this._partsCache.put(imageUrl, new PartBody(resp, bytesList));
 	}
 
-	protected void attachEventReceiverToImageView(final String imageUrl,
-			final EventReceiver eventReceiver) {
-		final CustomImageView imageView = (CustomImageView) mPhotoWall.findViewWithTag(imageUrl);  
-		if (imageView != null ) {  
-		    imageView.setEventReceiver(eventReceiver);
-		}
-	}
-
-	protected void detachEventReceiverFromImageView(final String imageUrl,
-			final EventReceiver eventReceiver) {
-		final CustomImageView imageView = (CustomImageView) mPhotoWall.findViewWithTag(imageUrl);  
-		if (imageView != null ) {  
-		    imageView.setEventReceiver(null);
-		}
-	}
-
 	private ArgsHandler genSafeRetainArgsHandler() {
 		return new ArgsHandler() {
 
@@ -391,8 +363,8 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 		}
 	}
 
-	private ImageView getImageViewOf(final String imageUrl) {
-		return (ImageView) mPhotoWall.findViewWithTag(imageUrl);
+	private CustomImageView getImageViewOf(final String imageUrl) {
+		return (CustomImageView) mPhotoWall.findViewWithTag(imageUrl);
 	}  
   
     /** 

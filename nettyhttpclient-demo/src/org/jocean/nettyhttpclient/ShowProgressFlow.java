@@ -5,7 +5,6 @@ package org.jocean.nettyhttpclient;
 
 import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.LastHttpContent;
 
@@ -15,6 +14,7 @@ import org.jocean.syncfsm.api.AbstractFlow;
 import org.jocean.syncfsm.api.BizStep;
 import org.jocean.syncfsm.api.EventHandler;
 import org.jocean.syncfsm.api.EventReceiver;
+import org.jocean.syncfsm.api.SyncFSMUtils;
 import org.jocean.syncfsm.api.annotion.OnEvent;
 import org.jocean.syncfsm.api.annotion.SameThread;
 import org.jocean.transportclient.api.HttpClient;
@@ -28,7 +28,6 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.view.View;
-import android.widget.ImageView;
 
 /**
  * @author isdom
@@ -61,28 +60,29 @@ public class ShowProgressFlow extends AbstractFlow {
 	@Override
 	public void setEventReceiver(final EventReceiver receiver) {
 		super.setEventReceiver(receiver);
-		this._collection.addEventReceiver(receiver);
+		this._view.setDrawable(
+				(DrawableOnView)SyncFSMUtils.buildInterfaceAdapter(DrawableOnView.class, receiver));
 		this._view.invalidate();
 	}
 
-	@OnEvent(event = Events.HTTPLOST)
+	@OnEvent(event = "onHttpClientLost")
 	private EventHandler onHttpLost()
 			throws Exception {
-		this._collection.removeEventReceiver( selfEventReceiver() );
+		this._view.setDrawable(null);
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug("http for {} lost.", _uri);
 		}
 		return null;
 	}
 
-	@OnEvent(event = Events.HTTPOBTAINED)
+	@OnEvent(event = "onHttpClientObtained")
 	private EventHandler onHttpObtained(final HttpClient httpclient) {
 		this._view.invalidate();
 		return RECVRESP;
 	}
 
-	@OnEvent(event = "onDraw")
-	private EventHandler onDrawOnConnecting(final ImageView view, final Canvas canvas) {
+	@OnEvent(event = "drawOnView")
+	private EventHandler onDrawOnConnecting(final View view, final Canvas canvas) {
 		
 		int center = view.getWidth() / 2;
 		int radios = center / 4;
@@ -107,8 +107,8 @@ public class ShowProgressFlow extends AbstractFlow {
 		return this.currentEventHandler();
 	}
 	
-	@OnEvent(event = "onDraw")
-	private EventHandler onDrawOnRecvResp(final ImageView view, final Canvas canvas) {
+	@OnEvent(event = "drawOnView")
+	private EventHandler onDrawOnRecvResp(final View view, final Canvas canvas) {
 		
 		int center = view.getWidth() / 2;
 		int radios = center / 4;
@@ -133,12 +133,11 @@ public class ShowProgressFlow extends AbstractFlow {
 		return this.currentEventHandler();
 	}
 	
-	@OnEvent(event = Events.HTTPRESPONSERECEIVED)
+	@OnEvent(event = "onHttpResponseReceived")
 	private EventHandler responseReceived(final HttpResponse response) {
 		if ( LOG.isDebugEnabled()) {
 			LOG.debug("channel for {} recv response {}", _uri, response);
 		}
-		_response = response;
 		_contentLength = HttpHeaders.getContentLength(response, -1);
 		// 考虑 Content-Range 的情况
 		final String contentRange = response.headers().get(HttpHeaders.Names.CONTENT_RANGE);
@@ -166,7 +165,7 @@ public class ShowProgressFlow extends AbstractFlow {
 		return RECVCONTENT;
 	}
 
-	@OnEvent(event = Events.HTTPCONTENTRECEIVED)
+	@OnEvent(event = "onHttpContentReceived")
 	private EventHandler contentReceived(final HttpContent content) {
 		final byte[] bytes = content.content().array();
 		_progress += bytes.length;
@@ -180,17 +179,17 @@ public class ShowProgressFlow extends AbstractFlow {
 		return RECVCONTENT;
 	}
 
-	@OnEvent(event = Events.LASTHTTPCONTENTRECEIVED)
+	@OnEvent(event = "onLastHttpContentReceived")
 	private EventHandler lastContentReceived(final LastHttpContent content) throws Exception {
 		final byte[] bytes = content.content().array();
 		_progress += bytes.length;
 		LOG.info("end of progress: uri {}, {}/{}", new Object[]{ _uri, this._progress, this._contentLength});
-		this._collection.removeEventReceiver(selfEventReceiver());
+		this._view.setDrawable(null);
 		return null;
 	}
 
-	@OnEvent(event = "onDraw")
-	private EventHandler onDrawOnRecvContent(final ImageView view, final Canvas canvas) {
+	@OnEvent(event = "drawOnView")
+	private EventHandler onDrawOnRecvContent(final View view, final Canvas canvas) {
 		
 		final long max = Math.max(this._contentLength, this._progress);
 		LOG.info("draw uri {} progress with {}/{}", new Object[]{ this._uri, this._progress, this._contentLength}); 
@@ -226,9 +225,8 @@ public class ShowProgressFlow extends AbstractFlow {
 		return this.currentEventHandler();
 	}
 	
-	public ShowProgressFlow(final Context context, final View view, final URI uri, final EventReceiverCollection collection) {
+	public ShowProgressFlow(final Context context, final CustomImageView view, final URI uri) {
 		this._uri = uri;
-		this._collection = collection;
 		this._view = view;
 		
 		this.paint.setAntiAlias(true); // 消除锯齿
@@ -241,13 +239,9 @@ public class ShowProgressFlow extends AbstractFlow {
 	}
 
 	private final URI _uri;
-	private final EventReceiverCollection _collection;
 	private long _contentLength = -1;
 	private int _progress = 0;
-	private final View _view;
-	
-	private HttpRequest _request;
-	private HttpResponse _response;
+	private final CustomImageView _view;
 	
 	/**
 	 * 根据手机的分辨率从 dp 的单位 转成为 px(像素)

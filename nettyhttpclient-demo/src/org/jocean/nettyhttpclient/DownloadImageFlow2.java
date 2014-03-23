@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.jocean.idiom.ByteArrayListInputStream;
-import org.jocean.idiom.Detachable;
 import org.jocean.idiom.Pair;
 import org.jocean.idiom.Visitor;
 import org.jocean.idiom.Visitor2;
@@ -85,7 +84,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		return null;
 	}
 	
-	@OnEvent(event = Events.HTTPLOST)
+	@OnEvent(event = "onHttpClientLost")
 	private EventHandler onHttpLost()
 			throws Exception {
 		_receiverRemover.removeReceiver(selfEventReceiver());
@@ -95,7 +94,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		return null;
 	}
 
-	@OnEvent(event = Events.HTTPOBTAINED)
+	@OnEvent(event = "onHttpClientObtained")
 	private EventHandler onHttpObtained(final HttpClient httpclient) {
 		// save http request
 		this._request = genHttpRequest(this._uri, this._part);
@@ -106,7 +105,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		return RECVRESP;
 	}
 
-	@OnEvent(event = Events.HTTPRESPONSERECEIVED)
+	@OnEvent(event = "onHttpResponseReceived")
 	private EventHandler responseReceived(final HttpResponse response) {
 		LOG.debug("channel for {} recv response {}", _uri, response);
 		this._response = response;
@@ -122,7 +121,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		return RECVCONTENT;
 	}
 
-	@OnEvent(event = Events.HTTPCONTENTRECEIVED)
+	@OnEvent(event = "onHttpContentReceived")
 	private EventHandler contentReceived(final HttpContent content) {
 		final byte[] bytes = content.content().array();
 		_bytesList.add(bytes);
@@ -131,7 +130,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		return RECVCONTENT;
 	}
 
-	@OnEvent(event = Events.HTTPLOST)
+	@OnEvent(event = "onHttpClientLost")
 	private EventHandler onHttpLostAndSaveUncompleteContent() throws Exception {
 		// Add some code to save reuse data from server
 		// ...
@@ -146,7 +145,7 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		return null;
 	}
 
-	@OnEvent(event = Events.LASTHTTPCONTENTRECEIVED)
+	@OnEvent(event = "onLastHttpContentReceived")
 	private EventHandler lastContentReceived(final LastHttpContent content) throws Exception {
 		final byte[] bytes = content.content().array();
 		_bytesList.add(bytes);
