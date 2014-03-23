@@ -1,7 +1,7 @@
 /**
  * 
  */
-package org.jocean.nettyhttpclient;
+package org.jocean.nettyhttpclient.common;
 
 /**
  * @author isdom

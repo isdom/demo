@@ -1,7 +1,7 @@
 /**
  * 
  */
-package org.jocean.nettyhttpclient;
+package org.jocean.nettyhttpclient.flow;
 
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.HttpContent;

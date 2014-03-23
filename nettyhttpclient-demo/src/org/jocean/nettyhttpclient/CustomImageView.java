@@ -3,6 +3,7 @@
  */
 package org.jocean.nettyhttpclient;
 
+import org.jocean.nettyhttpclient.common.DrawableOnView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
