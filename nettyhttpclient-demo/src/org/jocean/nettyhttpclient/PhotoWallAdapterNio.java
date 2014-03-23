@@ -18,6 +18,7 @@ import org.jocean.idiom.Visitor2;
 import org.jocean.nettyhttpclient.common.Cancelable;
 import org.jocean.nettyhttpclient.common.DrawableOnView;
 import org.jocean.nettyhttpclient.flow.DownloadImageFlow2;
+import org.jocean.nettyhttpclient.flow.GetJsonFlow;
 import org.jocean.nettyhttpclient.flow.ShowProgressFlow;
 import org.jocean.syncfsm.api.ArgsHandler;
 import org.jocean.syncfsm.api.EventReceiver;
@@ -195,18 +196,27 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
                 	
 					final URI uri = new URI(imageUrl);
 					
-					final DownloadImageFlow2 downloadImageFlow = genDownloadImageFlow(
-							getPartFromCache(imageUrl),
-							imageUrl, uri);
-					final ShowProgressFlow progressFlow = genDrawProgressFlow(imageUrl, uri);
-					
-					downloadImageFlow._handle.obtainHttpClient(
-							SyncFSMUtils.buildInterfaceAdapter(HttpReactor.class, 
-							genCompositeEventReceiver(downloadImageFlow, progressFlow) ));
-					
-                	if ( LOG.isDebugEnabled() ) {
-                		LOG.debug("try to load image for {}", imageUrl);
-                	}
+					if ( imageUrl.startsWith("https://huaban.com")) {
+						final GetJsonFlow flow = new GetJsonFlow(_http.createHttpClientHandle(uri), uri);
+						_source.create(flow, flow.OBTAINING );
+						flow._handle.obtainHttpClient(
+							flow.getInterfaceAdapter(HttpReactor.class));
+                		LOG.info("try to get json for {}", imageUrl);
+					}
+					else {
+						final DownloadImageFlow2 downloadImageFlow = genDownloadImageFlow(
+								getPartFromCache(imageUrl),
+								imageUrl, uri);
+						final ShowProgressFlow progressFlow = genDrawProgressFlow(imageUrl, uri);
+						
+						downloadImageFlow._handle.obtainHttpClient(
+								SyncFSMUtils.buildInterfaceAdapter(HttpReactor.class, 
+								genCompositeEventReceiver(downloadImageFlow, progressFlow) ));
+						
+	                	if ( LOG.isDebugEnabled() ) {
+	                		LOG.debug("try to load image for {}", imageUrl);
+	                	}
+					}
                 } else {  
                     setImageToView(imageUrl, bitmap);  
                 }  
