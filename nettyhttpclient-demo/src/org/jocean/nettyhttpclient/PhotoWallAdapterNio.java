@@ -7,9 +7,10 @@ import io.netty.handler.codec.http.HttpResponse;
 import io.netty.util.ReferenceCounted;
 
 import java.net.URI;
-import java.util.HashSet;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 import org.jocean.idiom.Pair;
 import org.jocean.idiom.Visitor;
@@ -17,6 +18,7 @@ import org.jocean.idiom.Visitor2;
 import org.jocean.syncfsm.api.ArgsHandler;
 import org.jocean.syncfsm.api.EventReceiver;
 import org.jocean.syncfsm.api.EventReceiverSource;
+import org.jocean.syncfsm.api.FlowLifecycleListener;
 import org.jocean.syncfsm.api.SyncFSMUtils;
 import org.jocean.syncfsm.container.FlowContainer;
 import org.jocean.transportclient.HttpStack;
@@ -47,31 +49,6 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 	  private static final Logger LOG =
               LoggerFactory.getLogger("PhotoWallAdapterNio");
   
-    /** 
-     * 图片缓存技术的核心类，用于缓存所有下载好的图片，在程序内存达到设定值时会将最少最近使用的图片移除掉。 
-     */  
-    private LruCache<String, Bitmap> mMemoryCache;  
-  
-    /** 
-     * GridView的实例 
-     */  
-    private GridView mPhotoWall;  
-  
-    /** 
-     * 第一张可见图片的下标 
-     */  
-    private int mFirstVisibleItem;  
-  
-    /** 
-     * 一屏有多少张图片可见 
-     */  
-    private int mVisibleItemCount;  
-  
-    /** 
-     * 记录是否刚打开程序，用于解决进入程序不滚动屏幕，不会下载图片的问题。 
-     */  
-    private boolean isFirstEnter = true;  
-  
     public PhotoWallAdapterNio(
     		Context context, 
     		int textViewResourceId, 
@@ -87,7 +64,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
         LOG.info("so image and uncomplete cache's Memory is {}", cacheSize);
         
         // 设置图片缓存大小为程序最大可用内存的1/8  
-        mMemoryCache = new LruCache<String, Bitmap>(cacheSize) {  
+        _bitmapsCache = new LruCache<String, Bitmap>(cacheSize) {  
             @Override  
             protected int sizeOf(final String key, final Bitmap bitmap) {  
                 //return bitmap.getByteCount();  
@@ -150,7 +127,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
      */  
     public void addBitmapToMemoryCache(String key, Bitmap bitmap) {  
         if (getBitmapFromMemoryCache(key) == null) {  
-            mMemoryCache.put(key, bitmap);  
+            _bitmapsCache.put(key, bitmap);  
         }  
     }  
   
@@ -162,7 +139,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
      * @return 对应传入键的Bitmap对象，或者null。 
      */  
     public Bitmap getBitmapFromMemoryCache(final String key) {  
-        return mMemoryCache.get(key);  
+        return _bitmapsCache.get(key);  
     }  
   
     @Override  
@@ -171,7 +148,11 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
         if (scrollState == SCROLL_STATE_IDLE) {  
             loadBitmaps(mFirstVisibleItem, mVisibleItemCount);  
         } else {  
-            cancelAllTasks();  
+            try {
+				cancelAllTasks();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}  
         }  
     }  
   
@@ -209,16 +190,15 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
                 	}
                 	
 					final URI uri = new URI(imageUrl);
+					
 					final DownloadImageFlow2 downloadImageFlow = genDownloadImageFlow(
 							getPartFromCache(imageUrl),
 							imageUrl, uri);
 					final ShowProgressFlow progressFlow = genDrawProgressFlow(imageUrl, uri);
-					final EventReceiver mainReceiver = _source.create(downloadImageFlow, downloadImageFlow.OBTAINING );
-					this._receivers.add(mainReceiver);
 					
 					downloadImageFlow._handle.obtainHttpClient(
-							(HttpReactor) SyncFSMUtils.buildInterfaceAdapter(HttpReactor.class, 
-							genCompositeEventReceiver(mainReceiver, progressFlow) ));
+							SyncFSMUtils.buildInterfaceAdapter(HttpReactor.class, 
+							genCompositeEventReceiver(downloadImageFlow, progressFlow) ));
 					
                 	if ( LOG.isDebugEnabled() ) {
                 		LOG.debug("try to load image for {}", imageUrl);
@@ -238,7 +218,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 	 * @return
 	 */
 	private EventReceiver genCompositeEventReceiver(
-			final EventReceiver mainReceiver,
+			final DownloadImageFlow2 downloadImageFlow,
 			final ShowProgressFlow progressFlow) {
 		return SyncFSMUtils.combineEventReceivers( 
 				SyncFSMUtils.wrapAsyncEventReceiver(
@@ -252,7 +232,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 								
 							}}, 
 							genSafeRetainArgsHandler()),
-				mainReceiver
+				_source.create(downloadImageFlow, downloadImageFlow.OBTAINING )
 			);
 	}
 
@@ -264,10 +244,26 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 	private ShowProgressFlow genDrawProgressFlow(
 			final String imageUrl,
 			final URI uri) {
+		final CustomImageView view = getImageViewOf(imageUrl);
 		return new ShowProgressFlow( 
 				this.getContext(), 
-				getImageViewOf(imageUrl),
-				uri);
+				view, uri)
+			.addFlowLifecycleListener(new FlowLifecycleListener<ShowProgressFlow>() {
+
+				@Override
+				public void afterEventReceiverCreated(
+						final ShowProgressFlow flow,
+						final EventReceiver receiver) throws Exception {
+					view.setDrawable( flow.getInterfaceAdapter(DrawableOnView.class));
+					view.invalidate();
+				}
+
+				@Override
+				public void afterFlowDestroy(
+						final ShowProgressFlow flow)
+						throws Exception {
+					view.setDrawable(null);
+				}});
 	}
 
 	/**
@@ -280,21 +276,10 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 			final PartBody partBody, 
 			final String imageUrl,
 			final URI uri) {
-		final DownloadImageFlow2 downloadImageFlow = new DownloadImageFlow2(
+		return new DownloadImageFlow2(
 			_http.createHttpClientHandle(uri),
 			(null != partBody ?  Pair.of(partBody.response, partBody.bytesList) : null),
 			uri, 
-			new ReceiverRemover() {
-
-				@Override
-				public void removeReceiver(final EventReceiver receiver) {
-					_handler.post(new Runnable() {
-
-						@Override
-						public void run() {
-							_receivers.remove(receiver);
-						}});
-				}},
 			new Visitor<Bitmap>() {
 
 				@Override
@@ -317,8 +302,30 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 				public void visit(final HttpResponse resp, final List<byte[]> bytesList)
 						throws Exception {
 					savePartToCache(imageUrl, resp, bytesList);
-				}});
-		return downloadImageFlow;
+				}})
+		.addFlowLifecycleListener(new FlowLifecycleListener<DownloadImageFlow2>() {
+
+			@Override
+			public void afterEventReceiverCreated(
+					final DownloadImageFlow2 flow,
+					final EventReceiver receiver) throws Exception {
+				if ( !_cancelers.add(flow.getInterfaceAdapter(Cancelable.class)) ) {
+					LOG.warn("can't add canceler for flow {}", flow);
+				}
+				else {
+					LOG.info("add canceler for flow {} succeed", flow);
+				}
+			}
+
+			@Override
+			public void afterFlowDestroy(final DownloadImageFlow2 flow) throws Exception {
+				if ( !_cancelers.remove(flow.getInterfaceAdapter(Cancelable.class)) ) {
+					LOG.warn("can't remove canceler for flow {}", flow);
+				}
+				else {
+					LOG.info("remove canceler for flow {} succeed", flow);
+				}
+			}});
 	}
 
     public PartBody getPartFromCache(final String key) {  
@@ -369,22 +376,22 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
   
     /** 
      * 取消所有正在下载或等待下载的任务。 
+     * @throws Exception 
      */  
-    public void cancelAllTasks() {  
-        for (EventReceiver receiver : this._receivers) {  
-        	final EventReceiver dlreceiver = receiver;
-        	this._client.eventLoop().submit(new Runnable() {
+    public void cancelAllTasks() throws Exception {  
+    	this._client.eventLoop().submit(new Runnable() {
 
-				@Override
-				public void run() {
-					try {
-						dlreceiver.acceptEvent("cancel");
-					} catch (Exception e) {
-						e.printStackTrace();
+			@Override
+			public void run() {
+				while ( !_cancelers.isEmpty() ) {
+					final Cancelable canceler = _cancelers.iterator().next();
+					if ( null != canceler ) {
+						canceler.cancel();
+						_cancelers.remove(canceler);
 					}
-				}});
-        }  
-        this._receivers.clear();
+				}
+			}
+    	}).sync();
     }  
 
     private static final class PartBody {
@@ -406,10 +413,40 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
     };
     
     /** 
+     * GridView的实例 
+     */  
+    private GridView mPhotoWall;  
+  
+    /** 
+     * 第一张可见图片的下标 
+     */  
+    private int mFirstVisibleItem;  
+  
+    /** 
+     * 一屏有多少张图片可见 
+     */  
+    private int mVisibleItemCount;  
+  
+    /** 
+     * 记录是否刚打开程序，用于解决进入程序不滚动屏幕，不会下载图片的问题。 
+     */  
+    private boolean isFirstEnter = true;  
+  
+    /** 
      * 记录所有正在下载或等待下载的任务。 
      */  
-    private final Set<EventReceiver> _receivers = new HashSet<EventReceiver>();
+    private final Set<Cancelable> _cancelers = new ConcurrentSkipListSet<Cancelable>(new Comparator<Cancelable>() {
+
+		@Override
+		public int compare(final Cancelable lhs, final Cancelable rhs) {
+			return lhs.hashCode() - rhs.hashCode();
+		}});
     
+    /** 
+     * 图片缓存技术的核心类，用于缓存所有下载好的图片，在程序内存达到设定值时会将最少最近使用的图片移除掉。 
+     */  
+    private LruCache<String, Bitmap> _bitmapsCache;  
+  
     private LruCache<String, PartBody> _partsCache;
    
     private final Handler _handler = new Handler();

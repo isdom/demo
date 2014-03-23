@@ -13,8 +13,6 @@ import java.net.URI;
 import org.jocean.syncfsm.api.AbstractFlow;
 import org.jocean.syncfsm.api.BizStep;
 import org.jocean.syncfsm.api.EventHandler;
-import org.jocean.syncfsm.api.EventReceiver;
-import org.jocean.syncfsm.api.SyncFSMUtils;
 import org.jocean.syncfsm.api.annotion.OnEvent;
 import org.jocean.syncfsm.api.annotion.SameThread;
 import org.jocean.transportclient.api.HttpClient;
@@ -34,7 +32,7 @@ import android.view.View;
  *
  */
 @SameThread
-public class ShowProgressFlow extends AbstractFlow {
+public class ShowProgressFlow extends AbstractFlow<ShowProgressFlow> {
 	private static final Logger LOG = LoggerFactory
 			.getLogger("ShowProgressFlow");
 
@@ -57,18 +55,9 @@ public class ShowProgressFlow extends AbstractFlow {
 			.handler(selfInvoker("onHttpLost"))
 			.freeze();
 
-	@Override
-	public void setEventReceiver(final EventReceiver receiver) {
-		super.setEventReceiver(receiver);
-		this._view.setDrawable(
-				(DrawableOnView)SyncFSMUtils.buildInterfaceAdapter(DrawableOnView.class, receiver));
-		this._view.invalidate();
-	}
-
 	@OnEvent(event = "onHttpClientLost")
 	private EventHandler onHttpLost()
 			throws Exception {
-		this._view.setDrawable(null);
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug("http for {} lost.", _uri);
 		}
@@ -184,7 +173,6 @@ public class ShowProgressFlow extends AbstractFlow {
 		final byte[] bytes = content.content().array();
 		_progress += bytes.length;
 		LOG.info("end of progress: uri {}, {}/{}", new Object[]{ _uri, this._progress, this._contentLength});
-		this._view.setDrawable(null);
 		return null;
 	}
 
@@ -225,7 +213,7 @@ public class ShowProgressFlow extends AbstractFlow {
 		return this.currentEventHandler();
 	}
 	
-	public ShowProgressFlow(final Context context, final CustomImageView view, final URI uri) {
+	public ShowProgressFlow(final Context context, final View view, final URI uri) {
 		this._uri = uri;
 		this._view = view;
 		
@@ -241,7 +229,7 @@ public class ShowProgressFlow extends AbstractFlow {
 	private final URI _uri;
 	private long _contentLength = -1;
 	private int _progress = 0;
-	private final CustomImageView _view;
+	private final View _view;
 	
 	/**
 	 * 根据手机的分辨率从 dp 的单位 转成为 px(像素)

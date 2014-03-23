@@ -38,7 +38,7 @@ import android.graphics.BitmapFactory;
  *
  */
 @SameThread
-public class DownloadImageFlow2 extends AbstractFlow {
+public class DownloadImageFlow2 extends AbstractFlow<DownloadImageFlow2> {
 	
 	private static final Logger LOG = LoggerFactory
 			.getLogger("DownloadImageFlow2");
@@ -87,7 +87,6 @@ public class DownloadImageFlow2 extends AbstractFlow {
 	@OnEvent(event = "onHttpClientLost")
 	private EventHandler onHttpLost()
 			throws Exception {
-		_receiverRemover.removeReceiver(selfEventReceiver());
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug("http for {} lost.", _uri);
 		}
@@ -138,7 +137,6 @@ public class DownloadImageFlow2 extends AbstractFlow {
 			this._uncompletedVisitor.visit(this._response, this._bytesList);
 		}
 
-		_receiverRemover.removeReceiver(selfEventReceiver());
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug("channel for {} closed.", _uri);
 		}
@@ -156,7 +154,6 @@ public class DownloadImageFlow2 extends AbstractFlow {
 				.decodeStream(new ByteArrayListInputStream(_bytesList)));
 		// _buf.removeComponents(0, _buf.numComponents());
 		// _buf.release();
-		_receiverRemover.removeReceiver(selfEventReceiver());
 		this._handle.detach();
 		return null;
 	}
@@ -165,14 +162,12 @@ public class DownloadImageFlow2 extends AbstractFlow {
 			final HttpClientHandle handle,
 			final Pair<HttpResponse, List<byte[]>> part,
 			final URI uri, 
-			final ReceiverRemover channelRemover,
 			final Visitor<Bitmap> bitmapVisitor,
 			final Visitor2<HttpResponse, List<byte[]>> visitor2) {
 		this._handle = handle;
 		this._part = part;
 		this._uri = uri;
 		this._bitmapVisitor = bitmapVisitor;
-		this._receiverRemover = channelRemover;
 		this._uncompletedVisitor = visitor2;
 	}
 	
@@ -182,7 +177,6 @@ public class DownloadImageFlow2 extends AbstractFlow {
 	private final URI _uri;
 	private final List<byte[]> _bytesList = new ArrayList<byte[]>();
 	private final Visitor<Bitmap> _bitmapVisitor;
-	private final ReceiverRemover _receiverRemover;
 	private final Visitor2<HttpResponse, List<byte[]>> _uncompletedVisitor;
 	private HttpRequest _request;
 	private HttpResponse _response;
@@ -222,4 +216,10 @@ public class DownloadImageFlow2 extends AbstractFlow {
 		
 		return totalSize;
 	}
+
+	@Override
+	public String toString() {
+		return "DownloadImageFlow2, uri:" + this._uri;
+	}
+	
 }

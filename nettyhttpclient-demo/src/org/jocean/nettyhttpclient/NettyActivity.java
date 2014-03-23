@@ -36,7 +36,11 @@ public class NettyActivity extends Activity {
     protected void onDestroy() {  
         super.onDestroy();  
         // 退出程序时结束所有的下载任务  
-        adapter.cancelAllTasks();  
+        try {
+			adapter.cancelAllTasks();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}  
     }  
   
 } 
