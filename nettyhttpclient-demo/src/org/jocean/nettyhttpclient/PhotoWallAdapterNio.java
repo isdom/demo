@@ -216,16 +216,8 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 					final EventReceiver mainReceiver = _source.create(downloadImageFlow, downloadImageFlow.OBTAINING );
 					this._receivers.add(mainReceiver);
 					
-					final HttpReactor reactor =new ReactorAdapter(
-							genCompositeEventReceiver(mainReceiver, progressFlow) );
-					
-					this._client.eventLoop().submit(new Runnable() {
-
-						@Override
-						public void run() {
-							downloadImageFlow._handle.obtainHttpClient(reactor);
-						}});
-					
+					downloadImageFlow._handle.obtainHttpClient(
+							new ReactorAdapter( genCompositeEventReceiver(mainReceiver, progressFlow) ));
 					
                 	if ( LOG.isDebugEnabled() ) {
                 		LOG.debug("try to load image for {}", imageUrl);
