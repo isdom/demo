@@ -17,12 +17,13 @@ import org.jocean.idiom.Visitor;
 import org.jocean.idiom.Visitor2;
 import org.jocean.nettyhttpclient.common.Cancelable;
 import org.jocean.nettyhttpclient.common.DrawableOnView;
+import org.jocean.nettyhttpclient.common.HandlerExectionLoop;
 import org.jocean.nettyhttpclient.flow.DownloadImageFlow2;
 import org.jocean.nettyhttpclient.flow.GetJsonFlow;
 import org.jocean.nettyhttpclient.flow.ShowProgressFlow;
-import org.jocean.syncfsm.api.ArgsHandler;
 import org.jocean.syncfsm.api.EventReceiver;
 import org.jocean.syncfsm.api.EventReceiverSource;
+import org.jocean.syncfsm.api.ExectionLoop;
 import org.jocean.syncfsm.api.FlowLifecycleListener;
 import org.jocean.syncfsm.api.SyncFSMUtils;
 import org.jocean.syncfsm.container.FlowContainer;
@@ -72,8 +73,8 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
         _bitmapsCache = new LruCache<String, Bitmap>(cacheSize) {  
             @Override  
             protected int sizeOf(final String key, final Bitmap bitmap) {  
-                //return bitmap.getByteCount();  
-                return	bitmap.getHeight() * bitmap.getWidth() * 4;
+                return bitmap.getRowBytes() * bitmap.getHeight();
+                // return	bitmap.getHeight() * bitmap.getWidth() * 4;
             }  
         };  
         mPhotoWall.setOnScrollListener(this);  
@@ -198,7 +199,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 					
 					if ( imageUrl.startsWith("https://huaban.com")) {
 						final GetJsonFlow flow = new GetJsonFlow(_http.createHttpClientHandle(uri), uri);
-						_source.create(flow, flow.OBTAINING );
+						_source.create(flow, flow.OBTAINING,this._client.exectionLoop());
 						flow._handle.obtainHttpClient(
 							flow.getInterfaceAdapter(HttpReactor.class));
                 		LOG.info("try to get json for {}", imageUrl);
@@ -235,18 +236,8 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 			final DownloadImageFlow2 downloadImageFlow,
 			final ShowProgressFlow progressFlow) {
 		return SyncFSMUtils.combineEventReceivers( 
-				SyncFSMUtils.wrapAsyncEventReceiver(
-						_source.create(progressFlow, progressFlow.OBTAINING), 
-						new Visitor<Runnable>() {
-
-							@Override
-							public void visit(final Runnable runnable)
-									throws Exception {
-								_handler.post(runnable);
-								
-							}}, 
-							genSafeRetainArgsHandler()),
-				_source.create(downloadImageFlow, downloadImageFlow.OBTAINING )
+				_source.create(progressFlow, progressFlow.OBTAINING, this._uiExectionLoop), 
+				_source.create(downloadImageFlow, downloadImageFlow.OBTAINING, this._client.exectionLoop() )
 			);
 	}
 
@@ -351,32 +342,6 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 		this._partsCache.put(imageUrl, new PartBody(resp, bytesList));
 	}
 
-	private ArgsHandler genSafeRetainArgsHandler() {
-		return new ArgsHandler() {
-
-			@Override
-			public Object[] beforeAcceptEvent(final Object[] args) {
-				final Object[] safeArgs = new Object[args.length];
-				int idx = 0;
-				for ( Object arg : args) {
-					if ( arg instanceof ReferenceCounted ) {
-						((ReferenceCounted)arg).retain();
-					}
-					safeArgs[idx++] = arg;
-				}
-				return safeArgs;
-			}
-
-			@Override
-			public void afterAcceptEvent(final Object[] args) {
-				for ( Object arg : args) {
-					if ( arg instanceof ReferenceCounted ) {
-						((ReferenceCounted)arg).release();
-					}
-				}
-			}};
-	}
-
 	private void setImageToView(final String imageUrl, final Bitmap bitmap) {
 		final ImageView imageView = getImageViewOf(imageUrl);  
 		if (imageView != null && bitmap != null) {  
@@ -464,6 +429,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
     private LruCache<String, PartBody> _partsCache;
    
     private final Handler _handler = new Handler();
+    private final ExectionLoop _uiExectionLoop = new HandlerExectionLoop(this._handler);
 	private final TransportClient _client = new TransportClient();
 	private final EventReceiverSource _source = new FlowContainer("global").genEventReceiverSource();
 	private final HttpStack _http = new HttpStack( this._source, this._client, 2);

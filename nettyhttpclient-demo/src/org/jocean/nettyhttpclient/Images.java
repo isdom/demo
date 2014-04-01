@@ -11,7 +11,6 @@ public class Images {
     		"https://huaban.com/rc/wallpapers/search/",
     		"https://huaban.com/rc/wallpapers/android/",
     		
-    		/*
     		"https://www.yinxiang.com/media/img/products/hero_clearly_yx.png",
     		"https://www.yinxiang.com/media/img/products/ill_clearly3.png",
     		"https://www.yinxiang.com/media/img/products/ill_clearly2.png",
@@ -124,7 +123,7 @@ public class Images {
     		"http://e.hiphotos.baidu.com/image/w%3D310/sign=ca95dcedb11c8701d6b6b4e7177e9e6e/21a4462309f790527cc425370ef3d7ca7acbd5e4.jpg",
     		"http://g.hiphotos.baidu.com/image/w%3D310/sign=fcbc543179f40ad115e4c1e2672d1151/eaf81a4c510fd9f921ed3660272dd42a2934a4c5.jpg",
     		"http://g.hiphotos.baidu.com/image/w%3D310/sign=928e1f09369b033b2c88fadb25cf3620/3801213fb80e7bec124301ec2d2eb9389b506b25.jpg",
-    		*/
+    		
     		//"https://pbnj.ebank.cmbchina.com/CmbBank_GenShell/UI/GenShellPC/doc/images/wd_adv-2.jpg",
     		//"https://i.alipayobjects.com/e/201401/1tdi7nR70h.png",
     		//"https://0.gravatar.com/avatar/9bd0a2752ec49d888172ed1effd521d8?d=https%3A%2F%2Fidenticons.github.com%2F759a76d4d5876437b974a4ea9ed34b35.png&r=x&s=140",

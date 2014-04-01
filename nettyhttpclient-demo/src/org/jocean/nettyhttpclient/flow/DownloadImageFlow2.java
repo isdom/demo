@@ -24,7 +24,6 @@ import org.jocean.syncfsm.api.AbstractFlow;
 import org.jocean.syncfsm.api.BizStep;
 import org.jocean.syncfsm.api.EventHandler;
 import org.jocean.syncfsm.api.annotion.OnEvent;
-import org.jocean.syncfsm.api.annotion.SameThread;
 import org.jocean.transportclient.api.HttpClient;
 import org.jocean.transportclient.api.HttpClientHandle;
 import org.slf4j.Logger;
@@ -37,7 +36,6 @@ import android.graphics.BitmapFactory;
  * @author isdom
  *
  */
-@SameThread
 public class DownloadImageFlow2 extends AbstractFlow<DownloadImageFlow2> {
 	
 	private static final Logger LOG = LoggerFactory

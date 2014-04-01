@@ -18,14 +18,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.jocean.idiom.ByteArrayListInputStream;
-import org.jocean.idiom.Pair;
-import org.jocean.idiom.Visitor;
-import org.jocean.idiom.Visitor2;
 import org.jocean.syncfsm.api.AbstractFlow;
 import org.jocean.syncfsm.api.BizStep;
 import org.jocean.syncfsm.api.EventHandler;
 import org.jocean.syncfsm.api.annotion.OnEvent;
-import org.jocean.syncfsm.api.annotion.SameThread;
 import org.jocean.transportclient.api.HttpClient;
 import org.jocean.transportclient.api.HttpClientHandle;
 import org.slf4j.Logger;
@@ -35,7 +31,6 @@ import org.slf4j.LoggerFactory;
  * @author isdom
  *
  */
-@SameThread
 public class GetJsonFlow extends AbstractFlow<GetJsonFlow> {
 	
 	private static final Logger LOG = LoggerFactory

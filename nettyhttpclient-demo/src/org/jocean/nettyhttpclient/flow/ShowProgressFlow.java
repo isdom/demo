@@ -11,10 +11,12 @@ import io.netty.handler.codec.http.LastHttpContent;
 import java.net.URI;
 
 import org.jocean.syncfsm.api.AbstractFlow;
+import org.jocean.syncfsm.api.ArgsHandler;
+import org.jocean.syncfsm.api.ArgsHandlerSource;
 import org.jocean.syncfsm.api.BizStep;
 import org.jocean.syncfsm.api.EventHandler;
 import org.jocean.syncfsm.api.annotion.OnEvent;
-import org.jocean.syncfsm.api.annotion.SameThread;
+import org.jocean.transportclient.TransportUtils;
 import org.jocean.transportclient.api.HttpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,8 +33,9 @@ import android.view.View;
  * @author isdom
  *
  */
-@SameThread
-public class ShowProgressFlow extends AbstractFlow<ShowProgressFlow> {
+public class ShowProgressFlow extends AbstractFlow<ShowProgressFlow> 
+    implements ArgsHandlerSource {
+    
 	private static final Logger LOG = LoggerFactory
 			.getLogger("ShowProgressFlow");
 
@@ -55,6 +58,11 @@ public class ShowProgressFlow extends AbstractFlow<ShowProgressFlow> {
 			.handler(selfInvoker("onHttpLost"))
 			.freeze();
 
+    @Override
+    public ArgsHandler getArgsHandler() {
+        return TransportUtils.getSafeRetainArgsHandler();
+    }
+    
 	@OnEvent(event = "onHttpClientLost")
 	private EventHandler onHttpLost()
 			throws Exception {
