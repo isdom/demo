@@ -4,7 +4,6 @@
 package org.jocean.nettyhttpclient;
 
 import io.netty.handler.codec.http.HttpResponse;
-import io.netty.util.ReferenceCounted;
 
 import java.net.URI;
 import java.util.Comparator;
@@ -12,18 +11,18 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 
+import org.jocean.idiom.ExectionLoop;
 import org.jocean.idiom.Pair;
 import org.jocean.idiom.Visitor;
 import org.jocean.idiom.Visitor2;
 import org.jocean.nettyhttpclient.common.Cancelable;
 import org.jocean.nettyhttpclient.common.DrawableOnView;
-import org.jocean.nettyhttpclient.common.HandlerExectionLoop;
 import org.jocean.nettyhttpclient.flow.DownloadImageFlow2;
 import org.jocean.nettyhttpclient.flow.GetJsonFlow;
 import org.jocean.nettyhttpclient.flow.ShowProgressFlow;
+import org.jocean.rosa.api.ApiUtils;
 import org.jocean.syncfsm.api.EventReceiver;
 import org.jocean.syncfsm.api.EventReceiverSource;
-import org.jocean.syncfsm.api.ExectionLoop;
 import org.jocean.syncfsm.api.FlowLifecycleListener;
 import org.jocean.syncfsm.api.SyncFSMUtils;
 import org.jocean.syncfsm.container.FlowContainer;
@@ -429,7 +428,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
     private LruCache<String, PartBody> _partsCache;
    
     private final Handler _handler = new Handler();
-    private final ExectionLoop _uiExectionLoop = new HandlerExectionLoop(this._handler);
+    private final ExectionLoop _uiExectionLoop = ApiUtils.genExectionLoopOf(this._handler);
 	private final TransportClient _client = new TransportClient();
 	private final EventReceiverSource _source = new FlowContainer("global").genEventReceiverSource();
 	private final HttpStack _http = new HttpStack( this._source, this._client, 2);
