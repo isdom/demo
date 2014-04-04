@@ -30,5 +30,8 @@
 			conf="compile->default(*)">
             <exclude org="com.google.android" name="android"/>
 		</dependency>
+		
+        <dependency org="org.jocean" name="jocean-android" rev="0.0.1-SNAPSHOT" 
+            conf="compile->default(*)" transitive="false"/>
 	</dependencies>
 </ivy-module>
