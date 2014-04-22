@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.jocean.idiom.ByteArrayListInputStream;
+import org.jocean.idiom.ExceptionUtils;
 import org.jocean.idiom.Pair;
 import org.jocean.idiom.Visitor;
 import org.jocean.idiom.Visitor2;
@@ -98,7 +99,13 @@ public class DownloadImageFlow2 extends AbstractFlow<DownloadImageFlow2> {
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug("send http request {}", _request);
 		}
-		httpclient.sendHttpRequest( this._request);
+		try {
+		    httpclient.sendHttpRequest( this._request);
+		}
+		catch (Exception e) {
+		    LOG.error("exception when sendHttpRequest, detail: {}",
+		            ExceptionUtils.exception2detail(e));
+		}
 		return RECVRESP;
 	}
 

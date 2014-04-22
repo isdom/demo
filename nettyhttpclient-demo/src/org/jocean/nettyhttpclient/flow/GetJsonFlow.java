@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.jocean.idiom.ByteArrayListInputStream;
+import org.jocean.idiom.ExceptionUtils;
 import org.jocean.syncfsm.api.AbstractFlow;
 import org.jocean.syncfsm.api.BizStep;
 import org.jocean.syncfsm.api.EventHandler;
@@ -81,7 +82,14 @@ public class GetJsonFlow extends AbstractFlow<GetJsonFlow> {
 		if ( LOG.isDebugEnabled() ) {
 			LOG.debug("send http request {}", request);
 		}
-		httpclient.sendHttpRequest( request );
+        try {
+            httpclient.sendHttpRequest( request );
+        }
+        catch (Exception e) {
+            LOG.error("exception when sendHttpRequest, detail: {}",
+                    ExceptionUtils.exception2detail(e));
+        }
+        
 		return RECVRESP;
 	}
 

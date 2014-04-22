@@ -26,9 +26,10 @@ import org.jocean.syncfsm.api.EventReceiverSource;
 import org.jocean.syncfsm.api.FlowLifecycleListener;
 import org.jocean.syncfsm.api.SyncFSMUtils;
 import org.jocean.syncfsm.container.FlowContainer;
-import org.jocean.transportclient.HttpStack;
 import org.jocean.transportclient.TransportClient;
+import org.jocean.transportclient.api.HttpClientHandle;
 import org.jocean.transportclient.api.HttpReactor;
+import org.jocean.transportclient.http.HttpStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -197,9 +198,10 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 					final URI uri = new URI(imageUrl);
 					
 					if ( imageUrl.startsWith("https://huaban.com")) {
-						final GetJsonFlow flow = new GetJsonFlow(_http.createHttpClientHandle(uri), uri);
+						final GetJsonFlow flow = new GetJsonFlow(_http.createHttpClientHandle(), uri);
 						_source.create(flow, flow.OBTAINING,this._client.exectionLoop());
 						flow._handle.obtainHttpClient(
+						    new HttpClientHandle.DefaultContext().uri(uri),
 							flow.getInterfaceAdapter(HttpReactor.class));
                 		LOG.info("try to get json for {}", imageUrl);
 					}
@@ -210,6 +212,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 						final ShowProgressFlow progressFlow = genDrawProgressFlow(imageUrl, uri);
 						
 						downloadImageFlow._handle.obtainHttpClient(
+	                            new HttpClientHandle.DefaultContext().uri(uri),
 								SyncFSMUtils.buildInterfaceAdapter(HttpReactor.class, 
 								genCompositeEventReceiver(downloadImageFlow, progressFlow) ));
 						
@@ -281,7 +284,7 @@ public class PhotoWallAdapterNio extends ArrayAdapter<String> implements OnScrol
 			final String imageUrl,
 			final URI uri) {
 		return new DownloadImageFlow2(
-			_http.createHttpClientHandle(uri),
+			_http.createHttpClientHandle(),
 			(null != partBody ?  Pair.of(partBody.response, partBody.bytesList) : null),
 			uri, 
 			new Visitor<Bitmap>() {
